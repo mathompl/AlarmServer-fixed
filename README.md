@@ -1,3 +1,43 @@
+# Envisalink AlarmServer - Fixed & Stabilized
+This is a patched and improved version of the original [automationgeek/alarmserver-docker](https://github.com/juggie/AlarmServer).
+
+## The Problem
+
+The original Docker image was being automatically rebuilt on Docker Hub. After the rebuild on **June 23, 2026**, many users started experiencing serious stability issues:
+
+- Envisalink connections would become **zombie/stalled** (no data flow, but the connection was not closed)
+- The proxy would **hang indefinitely**
+- Reconnecting logic was unreliable
+- TCP keepalive was not properly configured
+
+This caused the AlarmServer to stop receiving events from the Envisalink module without any clear error.
+
+## What This Version Fixes
+
+- Added **reliable zombie connection detection** (detects stalled connections after 15 seconds of inactivity)
+- Implemented **proper TCP keepalive** settings on the socket
+- Improved **reconnect logic** with timeouts
+- Converted recursive message handling to a safe loop with timeouts
+- Added better error handling to prevent indefinite hangs
+- The image no longer depends on automatic rebuilds of the original repository
+
+## Key Improvements
+
+- Stable long-running connections to Envisalink
+- Automatic recovery from stalled connections
+- Safer socket handling after reconnects
+- Clear logging of zombie events
+
+## Usage
+
+```yaml
+services:
+  alarmserver:
+    image: twojanazwa/alarmserver-fixed:latest
+    restart: unless-stopped
+    volumes:
+      - ./config:/app/config
+
 This is still beta software.
 
 The ssl certificates that are provided are intended for demo purposes only.  
