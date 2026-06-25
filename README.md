@@ -1,5 +1,5 @@
 # Envisalink AlarmServer - Fixed & Stabilized
-This is a patched and improved version of the original [automationgeek/alarmserver-docker https://github.com/juggie/AlarmServer](https://github.com/juggie/AlarmServer) 
+This is a patched and improved version of the original [automationgeek/alarmserver-docker](https://github.com/therealmysteryman/AlarmServer-docker) [https://github.com/juggie/AlarmServer](https://github.com/juggie/AlarmServer) 
 
 ## The Problem
 
