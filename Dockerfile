@@ -1,19 +1,25 @@
 FROM python:2.7-alpine3.8
 
+ENV TZ=Europe/Warsaw
+
 EXPOSE 4025
+WORKDIR /var/AlarmServer
 
-WORKDIR /var/
+# Instalacja zależności
+RUN apk update && apk add --no-cache tzdata bash
 
-RUN apk update && \
-    apk upgrade && \
-    apk add git bash sed
-RUN git clone https://github.com/mathompl/AlarmServer-fixed
+# Kopiujemy wszystko jawnie
+COPY . /var/AlarmServer/
 
-RUN pip install tornado
+# Debug - pokaż co się skopiowało
+RUN pwd
+RUN ls -la /var/AlarmServer/
 
-COPY alarmserver.cfg /var/AlarmServer/
-COPY run.sh /var/
+# Instalacja Tornado
+RUN pip install --no-cache-dir tornado
 
-RUN chmod +x /var/run.sh
+# Uprawnienia i timezone
+RUN chmod +x /var/AlarmServer/run.sh
+RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-CMD /var/run.sh
+CMD /var/AlarmServer/run.sh
