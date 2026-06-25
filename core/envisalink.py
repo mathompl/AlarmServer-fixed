@@ -60,7 +60,6 @@ class Client(object):
             return
 
         if time.time() - self._last_activity > 15:
-            logger.warning("Zombie! EnvisaLink connection stalled - forcing reconnect")
             self.log_zombie_event()
             self._pending_poll = False
 
@@ -261,22 +260,7 @@ class Client(object):
             sys.exit(0)
 
     def log_zombie_event(self):
-        log_path = "/var/AlarmServer/log/zombie_events.log"
-        log_dir = os.path.dirname(log_path)
-        if log_dir and not os.path.exists(log_dir):
-            try:
-                os.makedirs(log_dir)
-            except OSError:
-                pass
-
-        timestamp = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-        line = "%s  ZOMBIE CONNECTION DETECTED - forcing reconnect\n" % timestamp
-
-        try:
-            with open(log_path, "a") as f:
-                f.write(line)
-        except Exception as e:
-            logger.error("Failed to write zombie log: %s" % e)
+        logger.warning ("Zombie connection detected. Envisalink connection restarted.")
 
     def handle_event(self, code, parameters, event, message):
         if not 'type' in event:

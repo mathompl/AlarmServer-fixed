@@ -14,8 +14,8 @@ ALARMCODE=${ALARMCODE:-${EVL_ALARMCODE:-"1111"}}
 TZ=${TZ:-"Europe/Warsaw"}
 # ============================================================
 
-CONFIG_TEMPLATE="/var/AlarmServer/config/alarmserver.cfg"
-CONFIG_TEMP="/tmp/alarmserver_running.cfg"
+CONFIG_TEMPLATE="./config/alarmserver.cfg"
+CONFIG_TEMP="./alarmserver_running.cfg"
 
 echo "=== AlarmServer - Starting with ENV configuration ==="
 echo "IP:            $IP"
@@ -45,7 +45,7 @@ echo $TZ > /etc/timezone
 echo "Temporary config ready. Starting AlarmServer..."
 
 
-python /var/AlarmServer/alarmserver.py -c "$CONFIG_TEMP"
+python ./alarmserver.py -c "$CONFIG_TEMP"
 
 # Optional cleanup
 rm -f "$CONFIG_TEMP"
