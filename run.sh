@@ -11,6 +11,7 @@ PROXY_PORT=${PROXY_PORT:-${EVL_PROXY_PORT:-4025}}
 USERNAME=${USERNAME:-${EVL_USERNAME:-"user"}}
 PROXY_USERNAME=${PROXY_USERNAME:-${EVL_PROXY_USERNAME:-"user"}}
 ALARMCODE=${ALARMCODE:-${EVL_ALARMCODE:-"1111"}}
+LOGLEVEL=${LOGLEVEL:-${LOGLEVEL:-"INFO"}}
 TZ=${TZ:-"Europe/Warsaw"}
 # ============================================================
 
@@ -23,6 +24,7 @@ echo "PORT:          $PORT"
 echo "PROXY_PORT:    $PROXY_PORT"
 echo "USERNAME:      $USERNAME"
 echo "PROXY_USER:    $PROXY_USERNAME"
+echo "LOGLEVEL:      $LOGLEVEL"
 echo "ALARMCODE:     *****"
 echo "TZ:            $TZ"
 echo "=============================================="
@@ -37,6 +39,7 @@ sed -i "s/EVL_USERNAME/$USERNAME/g"        "$CONFIG_TEMP"
 sed -i "s/EVL_PROXY_PORT/$PROXY_PORT/g"    "$CONFIG_TEMP"
 sed -i "s/EVL_PROXY_USERNAME/$PROXY_USERNAME/g" "$CONFIG_TEMP"
 sed -i "s/EVL_ALARMCODE/$ALARMCODE/g"      "$CONFIG_TEMP"
+sed -i "s/_LOG_LEVEL/$LOGLEVEL/g"      "$CONFIG_TEMP"
 
 echo "Setting timezone to: $TZ"
 ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
