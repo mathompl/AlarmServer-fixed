@@ -1,46 +1,82 @@
-import logging, inspect
+import logging
+import inspect
 import sys
 import os
 from Queue import Queue
+import config
 
-#set the root path of our scrippt
+level_map = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL
+}
+# ============================================================
+
 rootpath = os.path.dirname(os.path.abspath(sys.modules['__main__'].__file__)) + '/'
 
-#class to dispatch our log events
 class DispatchingFormatter:
     def __init__(self, formatters, default_formatter):
         self._formatters = formatters
         self._default_formatter = default_formatter
 
     def format(self, record):
+        # Safe handling for records without extra fields
         formatter = self._formatters.get(record.name, self._default_formatter)
+        
+        # Add default values for our custom fields if they don't exist
+        if not hasattr(record, 's_filename'):
+            record.s_filename = getattr(record, 'filename', 'unknown')
+        if not hasattr(record, 's_line_number'):
+            record.s_line_number = getattr(record, 'lineno', 0)
+        if not hasattr(record, 's_function_name'):
+            record.s_function_name = getattr(record, 'funcName', 'unknown')
+            
         return formatter.format(record)
 
-def start(logfile = None):
+def start(logfile=None, loglevel=None):
+
+    if loglevel is None:
+        log_level = "INFO"    
+    else:
+        log_level = str(loglevel).strip().upper()
+
     #setup logging handler
     if logfile:
         try:
             handler = logging.FileHandler(logfile)
         except IOError:
             handler = logging.StreamHandler()
-            error("Unable to open %s for writing" % logfile)        
+            print("Unable to open %s for writing" % logfile)
     else:
         handler = logging.StreamHandler()
 
-    #set the formatter as our dispatching class
+    # Set formatter
     handler.setFormatter(DispatchingFormatter({
-        'alarmserver': logging.Formatter('%(asctime)s - %(levelname)s - %(s_filename)s:%(s_function_name)s@%(s_line_number)s: %(message)s', '%b %d %H:%M:%S')
-        },
+        'alarmserver': logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(s_filename)s:%(s_function_name)s@%(s_line_number)s: %(message)s',
+            '%b %d %H:%M:%S'
+        )},
         logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', '%b %d %H:%M:%S'),
     ))
 
-    #setup our handler and log level
-    logging.getLogger().addHandler(handler)
-    logging.getLogger().setLevel(logging.DEBUG)
+    # Add handler and set level
+    root_logger = logging.getLogger()
+    root_logger.addHandler(handler)
+    root_logger.setLevel(level_map.get(log_level, logging.INFO))
+
+    logger = logging.getLogger('alarmserver')
+    logger.info("Logger initialized with level: %s", log_level)
+
     start.started = 1
+
+
+# ====================== GLOBAL VARIABLES ======================
 start.started = 0
 
-#logging functions
+
+# ====================== LOGGING FUNCTIONS ======================
 def error(message):
     write(logging.ERROR, message)
 
@@ -53,16 +89,28 @@ def warning(message):
 def info(message):
     write(logging.INFO, message)
 
+
 def write(level, message):
+    """Internal write function with caller info"""
     (frame, filename, line_number, function_name, lines, index) = inspect.getouterframes(inspect.currentframe())[2]
-    if filename  == __file__:
+    if filename == __file__:
         (frame, filename, line_number, function_name, lines, index) = inspect.getouterframes(inspect.currentframe())[3]
-    extra={'s_filename' : filename.replace(rootpath, ''), 's_line_number' : line_number, 's_function_name' : function_name}
+
+    extra = {
+        's_filename': filename.replace(rootpath, ''),
+        's_line_number': line_number,
+        's_function_name': function_name
+    }
+
     if start.started:
         while not write.queue.empty():
             job = write.queue.get()
-            logging.getLogger('alarmserver').log(job['level'], job['message'], extra = job['extra'])
-        logging.getLogger('alarmserver').log(level, message, extra = extra)
+            logging.getLogger('alarmserver').log(job['level'], job['message'], extra=job['extra'])
+        
+        logging.getLogger('alarmserver').log(level, message, extra=extra)
     else:
-        write.queue.put({'level' : level, 'message' : message, 'extra' : extra})
+        write.queue.put({'level': level, 'message': message, 'extra': extra})
+
+
+# Initialize queue
 write.queue = Queue()

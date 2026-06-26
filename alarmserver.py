@@ -22,8 +22,9 @@ from core import envisalinkproxy
 import tornado.ioloop
 
 def main(argv):
-    #welcome message
-    logger.info('Alarm Server Starting')
+
+    print ("-----------------------------------\n");
+    print ("Alarm server starting ...\n");
 
     #set default config
     conffile='alarmserver.cfg'
@@ -36,14 +37,23 @@ def main(argv):
         if opt in ("-c", "--config"):
             conffile = arg
 
-    #load config
     config.load(conffile)
 
-    #start logger
     if config.LOGTOFILE == True:
-        logger.start(config.LOGFILE)
+        logger.start(logfile=config.LOGFILE, loglevel=config.LOGLEVEL)
     else:
-        logger.start()
+        logger.start(loglevel=config.LOGLEVEL)
+
+    logger.debug("=== FULL CONFIG DUMP ===")
+    for attr in sorted(dir(config)):
+        if attr.startswith('__') or attr.startswith('_'):
+            continue
+        try:
+            value = getattr(config, attr)
+            logger.debug("  " + attr.ljust(25) + " = " + repr(value))
+        except Exception as e:
+            logger.debug("  " + attr.ljust(25) + " = <error>")
+    logger.debug("========================")
 
     #enable the state
     state.init()
