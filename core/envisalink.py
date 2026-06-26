@@ -46,9 +46,10 @@ class Client(object):
         self.tcpclient = TCPClient()
         self._connection = None
         self._terminator = b"\r\n"
-        self._retrydelay = 10
+        self._retrydelay = 20
         self._last_activity = time.time()
         self._pending_poll = False
+        self._reconnecting = False
 
         self.do_connect()
 
@@ -56,44 +57,77 @@ class Client(object):
         tornado.ioloop.PeriodicCallback(self.keepalive_poll, 8000).start()
 
     def keepalive_poll(self):
-        if self._connection is None or getattr(self._connection, 'closed', lambda: False)():
+        if self._connection is None or self._reconnecting:
+            logger.debug("keepalive_poll: skipping, no connection or reconnecting")
             return
-
-        if time.time() - self._last_activity > 15:
+    
+        if getattr(self._connection, 'closed', lambda: False)():
+            logger.debug("keepalive_poll: connection already closed")
+            return
+    
+        inactivity = time.time() - self._last_activity
+    
+        logger.debug("keepalive_poll: inactivity = %.1f seconds" % inactivity)
+    
+        # ==================== WATCHDOG ====================
+        if inactivity > 60:
+            logger.critical(
+                "WATCHDOG: No response from Envisalink for %d seconds! Exiting process..." % 
+                int(inactivity)
+            )
+            sys.exit(1)
+        # ==================================================
+    
+        # Zombie connection detection
+        if inactivity > 20:
+            logger.warning(
+                "Zombie connection detected (%.1f seconds of inactivity)" % inactivity
+            )
             self.log_zombie_event()
             self._pending_poll = False
-
+    
             if self._connection:
                 try:
                     self._connection.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Exception while closing zombie connection: %s" % str(e))
             return
 
+        # Send keepalive command if needed
         if not self._pending_poll:
             self._pending_poll = True
+            logger.debug("Sending keepalive command '000'")
             self.send_command("000")
 
+
+    def update_activity(self):
+        self._last_activity = time.time()
+
+    
     @gen.coroutine
     def do_connect(self, reconnect=False):
         if reconnect:
-            logger.warning('Connection failed, retrying in %s seconds' % str(self._retrydelay))
-            yield gen.sleep(self._retrydelay)
-
+            delay = min(self._retrydelay, 60)
+            logger.warning('Connection lost, reconnecting in %s seconds...', delay)
+            yield gen.sleep(delay)
+            self._retrydelay = min(self._retrydelay * 1.5, 60)  
+        else:
+            self._retrydelay = 20
+    
         while self._connection is None:
             logger.debug('Connecting to {}:{}'.format(config.ENVISALINKHOST, config.ENVISALINKPORT))
-
+    
             try:
                 self._connection = yield gen.with_timeout(
-                    datetime.timedelta(seconds=15),
+                    datetime.timedelta(seconds=20),   
                     self.tcpclient.connect(config.ENVISALINKHOST, config.ENVISALINKPORT)
                 )
-
-                # Safe TCP keepalive settings
+    
+                # TCP Keepalive
                 if (self._connection is not None and
                         hasattr(self._connection, 'socket') and
                         self._connection.socket is not None):
-
+    
                     sock = self._connection.socket
                     try:
                         sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
@@ -105,15 +139,15 @@ class Client(object):
                         logger.warning("Failed to set keepalive: %s" % str(e))
                 else:
                     logger.warning("No socket available after connect")
-
-                self._connection.set_close_callback(self.handle_close)
-
+    
+                    self._connection.set_close_callback(self.handle_close)
+    
             except (StreamClosedError, gen.TimeoutError):
                 logger.warning('Connection failed or timeout - retrying...')
                 self._connection = None
-                yield gen.sleep(self._retrydelay)
+                yield gen.sleep(5)
                 continue
-
+    
             except gaierror:
                 if reconnect:
                     yield gen.sleep(self._retrydelay)
@@ -121,7 +155,7 @@ class Client(object):
                 else:
                     logger.error('Unable to resolve hostname %s. Exiting.' % config.ENVISALINKHOST)
                     sys.exit(0)
-
+    
             try:
                 line = yield gen.with_timeout(
                     datetime.timedelta(seconds=15),
@@ -129,20 +163,44 @@ class Client(object):
                 )
                 logger.debug("Connected to %s:%i" % (config.ENVISALINKHOST, config.ENVISALINKPORT))
                 self.handle_line(line)
+                self._retrydelay = 20          
                 break
             except Exception:
                 logger.warning("Initial read failed - retrying")
                 self._connection = None
-                yield gen.sleep(self._retrydelay)
+                yield gen.sleep(5)
                 continue
+
 
     @gen.coroutine
     def handle_close(self):
+        logger.warning("Envisalink connection closed")
         self._connection = None
-        self.do_connect(True)
+        if not self._reconnecting:
+            self._reconnecting = True
+            tornado.ioloop.IOLoop.current().add_callback(self._reconnect)
+
+    gen.coroutine
+    def _reconnect(self):
+       try:
+           yield self.do_connect(reconnect=True)
+       finally:
+           self._reconnecting = False
+
+
+    @gen.coroutine
+    def _reconnect(self):
+        try:
+            yield self.do_connect(reconnect=True)
+        finally:
+            self._reconnecting = False
+
 
     @gen.coroutine
     def send_command(self, code, data='', checksum=True):
+        self.update_activity()
+
+
         if checksum:
             to_send = code + data + get_checksum(code, data) + '\r\n'
         else:
@@ -211,6 +269,9 @@ class Client(object):
                     datetime.timedelta(seconds=25),
                     self._connection.read_until(self._terminator)
                 )
+                self.update_activity()
+
+
             except gen.TimeoutError:
                 logger.warning("Read timeout from EVL - forcing reconnect")
                 if self._connection:
