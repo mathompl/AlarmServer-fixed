@@ -5,17 +5,18 @@
 
 # ==================== ENVIRONMENT VARIABLES ====================
 # You can set these from Docker / docker-compose / shell
+cd..
 IP=127.0.0.1
 PORT=4026
 PROXY_PORT=4027
-USERNAME=admin
+USERNAME=user
 PROXY_USERNAME=user
 ALARMCODE=1111
 LOGLEVEL=DEBUG
 TZ="Europe/Warsaw"
 # ============================================================
 
-CONFIG_TEMPLATE="/volume1/docker/alarmserver/git/config/alarmserver.cfg"
+CONFIG_TEMPLATE="config/alarmserver.cfg"
 CONFIG_TEMP="/tmp/alarmserver_running.cfg"
 
 echo "=== AlarmServer - Starting with ENV configuration ==="
