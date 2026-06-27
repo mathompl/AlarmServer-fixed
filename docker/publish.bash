@@ -1,4 +1,4 @@
-cd /volume1/docker/alarmserver/git
+cd ..
 
 #git pull
 
