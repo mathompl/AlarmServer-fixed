@@ -12,3 +12,7 @@ This caused the AlarmServer to stop receiving events from the Envisalink module 
 
 This version fixes above problems and cleans code a bit.
 
+WEB rest interface doesn't seem to work correctly.
+
+## TODO
+Migrate to newest python, fix web rest api.
