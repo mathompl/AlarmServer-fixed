@@ -1,5 +1,8 @@
 from core import logger
 
+import time
+from tornado.ioloop import PeriodicCallback
+
 from tornado import gen
 from tornado.tcpserver import TCPServer
 from tornado.iostream import StreamClosedError
@@ -57,6 +60,23 @@ class ProxyServer(TCPServer):
                     yield conn.send_raw(input)
             except Exception:
                 pass
+
+    def __init__(self):
+        TCPServer.__init__(self)
+        self.connections = {}
+
+        events.register('proxy', self.proxy_event)
+
+        self.status_callback = PeriodicCallback(self.log_active_clients, 60000)  # 60 sekund
+        self.status_callback.start()
+
+    def log_active_clients(self):
+        if not self.connections:
+            logger.info("Proxy: No active clients")
+            return
+
+        clients = list(self.connections.keys())
+        logger.info(f"Proxy: Active clients ({len(clients)}): {', '.join(clients)}")
 
 
 class ProxyConnection(object):
