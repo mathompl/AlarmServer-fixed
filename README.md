@@ -6,9 +6,9 @@ This is a patched and improved version of the original repo [https://github.com/
 Docker image:
 [mathompl/alarmserver-docker-fixed:latest](https://hub.docker.com/r/mathompl/alarmserver-docker-fixed)
 
-## FIXES
+## PROBLEM
+Envisalink connections randomly become **zombie/stalled** (no data flow, but the connection is never closed), so the proxy **hangs indefinitely**.Sockets logic is flawed, TCP keepalive is not properly configured. 
+This caused the AlarmServer to stop receiving events from the Envisalink module without any clear error. 
 
-Envisalink connections would randomly become **zombie/stalled** (no data flow, but the connection was not closed), so the proxy would **hang indefinitely**.Reconnecting logic was unreliable, TCP keepalive was not properly configured
-
-This caused the AlarmServer to stop receiving events from the Envisalink module without any clear error.
+This version fixes above problems and cleans code a bit.
 
