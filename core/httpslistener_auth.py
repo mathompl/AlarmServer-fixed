@@ -1,5 +1,6 @@
-import logger, base64, hashlib
-from config import config
+import base64, hashlib
+from core import logger
+from core.config import config
 
 class InvalidLogin(Exception):
     pass

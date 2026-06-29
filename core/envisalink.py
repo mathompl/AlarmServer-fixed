@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+Envisalink Client for AlarmServer
+Handles TCP connection to Envisalink 2DS/3/4.
+"""
+
 import time
 import sys
 import re
@@ -10,33 +15,37 @@ from tornado.tcpclient import TCPClient
 from tornado.iostream import StreamClosedError
 from socket import gaierror
 
-from envisalinkdefs import evl_ResponseTypes
-from envisalinkdefs import evl_Defaults
-from envisalinkdefs import evl_ArmModes
+from core.envisalinkdefs import evl_ResponseTypes
+from core.envisalinkdefs import evl_Defaults
+from core.envisalinkdefs import evl_ArmModes
 
-import logger
+from core import logger
 import tornado.ioloop
 
-from config import config
-from events import events
+from core.config import config
+from core.events import events
 
 
-def getMessageType(code):
+def get_message_type(code):
+    """Return human readable message type for given TPI code"""
     return evl_ResponseTypes[code]
 
 
 def to_chars(string):
-    chars = []
-    for char in string:
-        chars.append(ord(char))
-    return chars
+    """Convert string to list of ASCII values"""
+    return [ord(char) for char in string]
 
 
 def get_checksum(code, data):
+    """Calculate TPI checksum"""
     return ("%02X" % sum(to_chars(code) + to_chars(data)))[-2:]
 
 
-class Client(object):
+class Client:
+    """
+    Main Envisalink TCP Client
+    """
+
     def __init__(self):
         logger.debug('Starting Envisalink Client')
 
@@ -53,17 +62,16 @@ class Client(object):
 
         self.do_connect()
 
-        # Check every 8 seconds
+        # Periodic keepalive
         tornado.ioloop.PeriodicCallback(self.keepalive_poll, 8000).start()
 
-    # ==================== POPRAWIONY keepalive_poll ====================
     def keepalive_poll(self):
+        """Periodic connection health check"""
         if self._connection is None or self._reconnecting:
             return
 
-        # Bezpieczniejsze sprawdzanie czy połączenie jest zamknięte
         try:
-            if self._connection.closed():
+            if hasattr(self._connection, 'closed') and self._connection.closed():
                 logger.debug("keepalive_poll: connection already closed")
                 self._connection = None
                 return
@@ -74,27 +82,19 @@ class Client(object):
         inactivity = time.time() - self._last_activity
         logger.debug("keepalive_poll: inactivity = %.1f seconds" % inactivity)
 
-        # ==================== WATCHDOG ====================
+        # Watchdog
         if inactivity > 60:
-            logger.critical(
-                "WATCHDOG: No response from Envisalink for %d seconds! Exiting process..." %
-                int(inactivity)
-            )
+            logger.critical("WATCHDOG: No response from Envisalink for %d seconds! Exiting..." % int(inactivity))
             sys.exit(1)
-        # ==================================================
 
-        # Zombie connection detection
+        # Zombie connection
         if inactivity > 20:
-            logger.warning(
-                "Zombie connection detected (%.1f seconds of inactivity) - forcing reconnect" % inactivity
-            )
+            logger.warning("Zombie connection detected (%.1f seconds of inactivity) - forcing reconnect" % inactivity)
             self._pending_poll = False
-
             try:
                 self._connection.close()
             except Exception:
                 pass
-
             self._connection = None
 
             if not self._reconnecting:
@@ -116,7 +116,6 @@ class Client(object):
         if reconnect:
             delay = min(self._retrydelay, 60)
             logger.warning('Connection lost, reconnecting in %s seconds...' % delay)
-
             yield gen.sleep(delay)
             self._retrydelay = min(self._retrydelay * 1.5, 60)
         else:
@@ -135,7 +134,6 @@ class Client(object):
                 if (self._connection is not None and
                         hasattr(self._connection, 'socket') and
                         self._connection.socket is not None):
-
                     sock = self._connection.socket
                     try:
                         sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
@@ -145,12 +143,9 @@ class Client(object):
                         logger.debug("TCP Keepalive enabled (60/15/8)")
                     except Exception as e:
                         logger.warning("Failed to set keepalive: %s" % str(e))
-                else:
-                    logger.warning("No socket available after connect")
 
                 self._connection.set_close_callback(self.handle_close)
 
-                # Reset stanu po udanym połączeniu
                 self._pending_poll = False
                 self._last_activity = time.time()
 
@@ -161,12 +156,8 @@ class Client(object):
                 continue
 
             except gaierror:
-                if reconnect:
-                    yield gen.sleep(self._retrydelay)
-                    continue
-                else:
-                    logger.error('Unable to resolve hostname %s. Exiting.' % config.ENVISALINKHOST)
-                    sys.exit(0)
+                logger.error('Unable to resolve hostname %s. Exiting.' % config.ENVISALINKHOST)
+                sys.exit(0)
 
             try:
                 line = yield gen.with_timeout(
@@ -208,23 +199,31 @@ class Client(object):
             to_send = code + data + '\r\n'
 
         try:
-            yield self._connection.write(to_send)
+            yield self._connection.write(to_send.encode('ascii'))
             logger.debug('TX > ' + to_send[:-1])
         except (StreamClosedError, AttributeError, TypeError):
             pass
 
     @gen.coroutine
     def handle_line(self, rawinput):
+        """Main line processing loop"""
         while True:
-            self._last_activity = time.time()
+            self.update_activity()
             self._pending_poll = False
 
-            if rawinput == '':
+            if not rawinput:
                 return
 
-            input_str = rawinput.strip()
+            # Python 3 bytes fix
+            if isinstance(rawinput, bytes):
+                input_str = rawinput.decode('ascii', errors='ignore')
+            else:
+                input_str = str(rawinput)
+
+            input_str = input_str.strip()
+
             if config.ENVISALINKLOGRAW:
-                logger.debug('RX RAW < "' + str(input_str) + '"')
+                logger.debug('RX RAW < "' + input_str + '"')
 
             if re.match(r'^\d\d:\d\d:\d\d ', input_str):
                 input_str = input_str[9:]
@@ -237,7 +236,7 @@ class Client(object):
             parameters = input_str[3:][:-2]
 
             try:
-                event = getMessageType(int(code))
+                event = get_message_type(int(code))
             except KeyError:
                 logger.warning('Received unknown TPI code: "%s", parameters: "%s"' % (input_str[:3], parameters))
                 return
@@ -261,7 +260,8 @@ class Client(object):
                 if handler != 'handle_login':
                     events.put('proxy', None, rawinput)
             except AttributeError:
-                raise Exception("Handler function doesn't exist")
+                logger.error("Handler function doesn't exist: " + handler)
+                return
 
             func(code, parameters, event, message)
 
@@ -270,55 +270,29 @@ class Client(object):
                     datetime.timedelta(seconds=25),
                     self._connection.read_until(self._terminator)
                 )
-                self.update_activity()
-
-            # ==================== POPRAWIONE OBSŁUGIWANIE BŁĘDÓW ====================
             except gen.TimeoutError:
                 logger.warning("Read timeout from EVL - forcing reconnect")
-                if self._connection:
-                    try:
-                        self._connection.close()
-                    except Exception:
-                        pass
                 self._connection = None
-
                 if not self._reconnecting:
                     self._reconnecting = True
                     tornado.ioloop.IOLoop.current().add_callback(self._reconnect)
                 break
-
             except StreamClosedError:
                 logger.debug("StreamClosedError in handle_line")
                 self._connection = None
                 break
 
     def format_event(self, event, parameters):
-        # ... (bez zmian)
+        """Format event message"""
         if 'type' in event:
-            if event['type'] in ('partition', 'zone'):
-                if event['type'] == 'partition':
-                    if int(parameters[0]) in config.PARTITIONNAMES:
-                        if len(str(parameters)) == 5:
-                            try:
-                                usercode = int(parameters[1:5])
-                            except:
-                                usercode = 0
-                            if int(usercode) in config.ALARMUSERNAMES:
-                                alarmusername = config.ALARMUSERNAMES[int(usercode)]
-                            else:
-                                alarmusername = usercode
-                            return event['name'].format(
-                                str(config.PARTITIONNAMES[int(parameters[0])]), str(alarmusername))
-                        elif len(parameters) == 2:
-                            armmode = evl_ArmModes[int(parameters[1])]
-                            return event['name'].format(
-                                str(config.PARTITIONNAMES[int(parameters[0])]), str(armmode))
-                        else:
-                            return event['name'].format(str(config.PARTITIONNAMES[int(parameters)]))
-                elif event['type'] == 'zone':
-                    if int(parameters) in config.ZONENAMES:
-                        if config.ZONENAMES[int(parameters)] is not False:
-                            return event['name'].format(str(config.ZONENAMES[int(parameters)]))
+            if event['type'] == 'partition':
+                p = int(parameters[0]) if len(parameters) > 0 else 0
+                if p in config.PARTITIONNAMES:
+                    return event['name'].format(str(config.PARTITIONNAMES[p]))
+            elif event['type'] == 'zone':
+                z = int(parameters) if parameters.isdigit() else 0
+                if z in config.ZONENAMES:
+                    return event['name'].format(str(config.ZONENAMES[z]))
         return event['name'].format(str(parameters))
 
     def handle_login(self, code, parameters, event, message):
@@ -330,12 +304,8 @@ class Client(object):
             logger.warning('Incorrect Envisalink password')
             sys.exit(0)
 
-    def log_zombie_event(self):
-        logger.warning("Zombie connection detected. Envisalink connection restarted.")
-
     def handle_event(self, code, parameters, event, message):
-        # ... (bez zmian)
-        if not 'type' in event:
+        if 'type' not in event:
             return
 
         parameters = int(parameters)
@@ -347,8 +317,6 @@ class Client(object):
         if ((event['type'] == 'zone' and parameters in config.ZONENAMES) or
                 (event['type'] == 'partition' and parameters in config.PARTITIONNAMES)):
             events.put('alarm', event['type'], parameters, code, event, message, defaultStatus)
-        elif event['type'] in ('zone', 'partition'):
-            logger.debug('Ignoring unnamed %s %s' % (event['type'], parameters))
         else:
             logger.debug('Ignoring unhandled event %s' % event['type'])
 
@@ -359,7 +327,6 @@ class Client(object):
         self.handle_event(code, parameters[0], event, message)
 
     def request_action(self, eventType, type, parameters):
-        # ... (bez zmian)
         try:
             partition = str(parameters['partition'])
         except (TypeError, KeyError):
@@ -380,16 +347,21 @@ class Client(object):
             self.send_command('001')
         elif type == 'ping':
             self.send_command('000')
-        elif type == 'pgm':
-            pass
 
     @gen.coroutine
     def envisalink_proxy(self, eventType, type, parameters, *args):
+        """Forward command from Proxy clients to real Envisalink"""
         try:
-            yield self._connection.write(parameters)
-            logger.debug('PROXY > ' + parameters.strip())
-        except (StreamClosedError, AttributeError, TypeError):
-            pass
+            # Dodajemy \r\n - to jest kluczowe!
+            if isinstance(parameters, str):
+                to_send = parameters + '\r\n'
+            else:
+                to_send = parameters
+
+            yield self._connection.write(to_send.encode('ascii'))
+            logger.debug('PROXY > ' + to_send.strip())
+        except (StreamClosedError, AttributeError, TypeError) as e:
+            logger.debug(f'Proxy forward error: {e}')
 
 
 if __name__ == "__main__":

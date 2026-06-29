@@ -1,4 +1,4 @@
-FROM python:2.7-alpine3.8
+FROM python:3.8-alpine
 
 ENV IP=127.0.0.1
 ENV PORT=4025
@@ -25,7 +25,8 @@ RUN pwd
 RUN ls -la /var/AlarmServer/
 
 # Instalacja Tornado
-RUN pip install --no-cache-dir tornado
+#RUN pip install --no-cache-dir tornado
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Uprawnienia i timezone
 RUN chmod +x /var/AlarmServer/run.sh

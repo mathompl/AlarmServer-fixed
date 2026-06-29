@@ -2,7 +2,7 @@ import logging
 import inspect
 import sys
 import os
-from Queue import Queue
+import queue          # <-- zmienione
 import config
 
 level_map = {
@@ -12,6 +12,7 @@ level_map = {
     "ERROR": logging.ERROR,
     "CRITICAL": logging.CRITICAL
 }
+
 # ============================================================
 
 rootpath = os.path.dirname(os.path.abspath(sys.modules['__main__'].__file__)) + '/'
@@ -22,27 +23,26 @@ class DispatchingFormatter:
         self._default_formatter = default_formatter
 
     def format(self, record):
-        # Safe handling for records without extra fields
         formatter = self._formatters.get(record.name, self._default_formatter)
-        
-        # Add default values for our custom fields if they don't exist
+
+        # Safe handling for records without extra fields
         if not hasattr(record, 's_filename'):
             record.s_filename = getattr(record, 'filename', 'unknown')
         if not hasattr(record, 's_line_number'):
             record.s_line_number = getattr(record, 'lineno', 0)
         if not hasattr(record, 's_function_name'):
             record.s_function_name = getattr(record, 'funcName', 'unknown')
-            
+
         return formatter.format(record)
 
-def start(logfile=None, loglevel=None):
 
+def start(logfile=None, loglevel=None):
     if loglevel is None:
-        log_level = "INFO"    
+        log_level = "INFO"
     else:
         log_level = str(loglevel).strip().upper()
 
-    #setup logging handler
+    # Setup logging handler
     if logfile:
         try:
             handler = logging.FileHandler(logfile)
@@ -103,14 +103,15 @@ def write(level, message):
     }
 
     if start.started:
+        # Opróżnij kolejkę
         while not write.queue.empty():
             job = write.queue.get()
             logging.getLogger('alarmserver').log(job['level'], job['message'], extra=job['extra'])
-        
+
         logging.getLogger('alarmserver').log(level, message, extra=extra)
     else:
         write.queue.put({'level': level, 'message': message, 'extra': extra})
 
 
 # Initialize queue
-write.queue = Queue()
+write.queue = queue.Queue()   # <-- zmienione

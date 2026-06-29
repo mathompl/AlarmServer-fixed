@@ -5,21 +5,20 @@
 
 # ==================== ENVIRONMENT VARIABLES ====================
 # You can set these from Docker / docker-compose / shell
-cd..
-IP=127.0.0.1
-PORT=4026
-PROXY_PORT=4027
-USERNAME=user
+IP=192.168.1.4
+PORT=4025
+PROXY_PORT=4025
+USERNAME=admin
 PROXY_USERNAME=user
 ALARMCODE=1111
 LOGLEVEL=DEBUG
 TZ="Europe/Warsaw"
 # ============================================================
 
-CONFIG_TEMPLATE="config/alarmserver.cfg"
+CONFIG_TEMPLATE="/volume1/docker/alarmserver/git/config/alarmserver.cfg"
 CONFIG_TEMP="/tmp/alarmserver_running.cfg"
 
-echo "=== TEST AlarmServer - Starting with ENV configuration ==="
+echo "=== AlarmServer - Starting with ENV configuration ==="
 echo "IP:            $IP"
 echo "PORT:          $PORT"
 echo "PROXY_PORT:    $PROXY_PORT"
@@ -49,7 +48,7 @@ echo $TZ > /etc/timezone
 echo "Temporary config ready. Starting AlarmServer..."
 
 
-python2.7 ./alarmserver.py -c "$CONFIG_TEMP"
+python ./alarmserver.py -c "$CONFIG_TEMP"
 
 # Optional cleanup
 rm -f "$CONFIG_TEMP"

@@ -1,4 +1,4 @@
-import logger
+from core import logger 
 
 class events():
     @staticmethod
