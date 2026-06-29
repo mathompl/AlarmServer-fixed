@@ -122,7 +122,7 @@ class Client:
             self._retrydelay = 20
 
         while self._connection is None:
-            logger.debug('Connecting to {}:{}'.format(config.ENVISALINKHOST, config.ENVISALINKPORT))
+            logger.info('Connecting to {}:{}'.format(config.ENVISALINKHOST, config.ENVISALINKPORT))
 
             try:
                 self._connection = yield gen.with_timeout(
@@ -164,7 +164,7 @@ class Client:
                     datetime.timedelta(seconds=15),
                     self._connection.read_until(self._terminator)
                 )
-                logger.debug("Connected to %s:%i" % (config.ENVISALINKHOST, config.ENVISALINKPORT))
+                logger.info("Connected to Envisalink %s:%i" % (config.ENVISALINKHOST, config.ENVISALINKPORT))
                 self.handle_line(line)
                 self._retrydelay = 20
                 break
