@@ -93,7 +93,7 @@ class ProxyConnection(object):
                 if self.authenticated:
                     # Przekazujemy jako STRING (to jest ważne!)
                     events.put('envisalink', None, line_str)
-#                    logger.debug(f'PROXY > Forwarded to Envisalink: "{line_str}"')
+                    logger.debug(f'CLIENT ({self.address[0]}:{self.address[1]}) RX < ' + line_str)
                 else:
                     # Autentykacja
                     password = config.ENVISALINKPROXYPASS
