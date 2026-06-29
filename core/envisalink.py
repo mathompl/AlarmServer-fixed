@@ -114,26 +114,24 @@ class Client:
     @gen.coroutine
     def do_connect(self, reconnect=False):
         if reconnect:
-            delay = min(self._retrydelay, 60)
+            delay = min(self._retrydelay, 45)
             logger.warning('Connection lost, reconnecting in %s seconds...' % delay)
             yield gen.sleep(delay)
-            self._retrydelay = min(self._retrydelay * 1.5, 60)
+            self._retrydelay = min(self._retrydelay * 1.6, 90)  
         else:
-            self._retrydelay = 20
+            self._retrydelay = 15   
 
         while self._connection is None:
             logger.info('Connecting to {}:{}'.format(config.ENVISALINKHOST, config.ENVISALINKPORT))
 
             try:
                 self._connection = yield gen.with_timeout(
-                    datetime.timedelta(seconds=20),
+                    datetime.timedelta(seconds=25),     
                     self.tcpclient.connect(config.ENVISALINKHOST, config.ENVISALINKPORT)
                 )
 
                 # TCP Keepalive
-                if (self._connection is not None and
-                        hasattr(self._connection, 'socket') and
-                        self._connection.socket is not None):
+                if (self._connection is not None and hasattr(self._connection, 'socket') and self._connection.socket is not None):
                     sock = self._connection.socket
                     try:
                         sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
@@ -149,32 +147,41 @@ class Client:
                 self._pending_poll = False
                 self._last_activity = time.time()
 
-            except (StreamClosedError, gen.TimeoutError):
-                logger.warning('Connection failed or timeout - retrying...')
+            except (StreamClosedError, gen.TimeoutError) as e:
+                logger.warning(f'Connection failed or timeout ({type(e).__name__}) - retrying...')
                 self._connection = None
-                yield gen.sleep(5)
+                yield gen.sleep(8)
                 continue
 
             except gaierror:
                 logger.error('Unable to resolve hostname %s. Exiting.' % config.ENVISALINKHOST)
                 sys.exit(0)
 
+            # === Initial read ===
             try:
+                logger.debug("Waiting for initial data from Envisalink...")
                 line = yield gen.with_timeout(
-                    datetime.timedelta(seconds=15),
+                    datetime.timedelta(seconds=20),        
                     self._connection.read_until(self._terminator)
                 )
-                logger.info("Connected to Envisalink %s:%i" % (config.ENVISALINKHOST, config.ENVISALINKPORT))
+                logger.info("✅ Connected to Envisalink %s:%i" % (config.ENVISALINKHOST, config.ENVISALINKPORT))
                 self.handle_line(line)
-                self._retrydelay = 20
+                self._retrydelay = 15
                 break
-            except Exception:
-                logger.warning("Initial read failed - retrying")
+
+            except Exception as e:
+                logger.warning(f"Initial read failed ({type(e).__name__}) - retrying")
                 self._connection = None
-                delay =  self._retrydelay  # albo 15-20 sekund
+                
+                delay = min(self._retrydelay, 30)
                 logger.info(f"Waiting {delay} seconds before next connection attempt...")
-                yield gen.sleep(delay) 
+                yield gen.sleep(delay)
+                
+                self._retrydelay = min(self._retrydelay * 1.5, 90)
                 continue
+
+
+
 
     @gen.coroutine
     def handle_close(self):
