@@ -200,7 +200,7 @@ class Client:
                 self._connection.read_until(self._terminator)
             )
 
-            logger.info(f"RAW RECEIVED: {repr(line)}")
+            #logger.info(f"RAW RECEIVED: {repr(line)}")
             parsed = self.parse_tpi_message(line)
             if parsed:
                 code, parameters, _, message = parsed
@@ -223,7 +223,7 @@ class Client:
                 self._connection.read_until(self._terminator)
             )
 
-            logger.info(f"RAW RECEIVED: {repr(line)}")
+            #logger.info(f"RAW RECEIVED: {repr(line)}")
             parsed = self.parse_tpi_message(line)
             if parsed:
                 code, parameters, _, message = parsed
@@ -239,7 +239,7 @@ class Client:
                 self._connection.read_until(self._terminator)
             )
 
-            logger.info(f"RAW RECEIVED: {repr(line)}")
+            #logger.info(f"RAW RECEIVED: {repr(line)}")
             parsed = self.parse_tpi_message(line)
             if parsed:
                 code, parameters, _, message = parsed
