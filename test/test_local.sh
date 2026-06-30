@@ -49,7 +49,7 @@ echo $TZ > /etc/timezone
 echo "Temporary config ready. Starting AlarmServer..."
 
 
-python2.7 ./alarmserver.py -c "$CONFIG_TEMP"
+python ./alarmserver.py -c "$CONFIG_TEMP"
 
 # Optional cleanup
 rm -f "$CONFIG_TEMP"

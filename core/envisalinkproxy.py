@@ -33,6 +33,8 @@ class ProxyServer(TCPServer):
         self.connections_per_ip = defaultdict(int) 
 
         events.register('proxy', self.proxy_event)
+        events.register('proxy_status', self.proxy_status)
+            
 
         self.status_callback = PeriodicCallback(self.log_active_clients, 60000)  # 60 sekund
         self.status_callback.start()
@@ -41,6 +43,27 @@ class ProxyServer(TCPServer):
     def _can_accept_connection(self, ip):
         max_per_ip = getattr(config, 'PROXY_MAX_CONNECTIONS_PER_IP', 5)
         return self.connections_per_ip[ip] < max_per_ip
+
+    @gen.coroutine
+    def proxy_status(self, event_name, zone, parameters, message):
+        """Wysyłanie statusu do klientów proxy"""
+        if not self.connections or not message:
+            return
+
+        # Upewniamy się, że jest \r\n na końcu
+        if isinstance(message, str):
+            msg = message
+            if not msg.endswith('\r\n'):
+                msg += '\r\n'
+        else:
+            msg = str(message) + '\r\n'
+
+        for conn in list(self.connections.values()):
+            try:
+                if conn.authenticated:
+                    yield conn.send_raw(msg)
+            except Exception:
+                pass
 
     @gen.coroutine
     def handle_stream(self, stream, address):

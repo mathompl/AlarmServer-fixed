@@ -6,11 +6,22 @@ This is a patched and improved version of the original repo [https://github.com/
 Docker image:
 [mathompl/alarmserver-docker-fixed:latest](https://hub.docker.com/r/mathompl/alarmserver-docker-fixed)
 
-## PROBLEM
-Envisalink connections randomly become **zombie/stalled** (no data flow, but the connection is never closed), so the proxy **hangs indefinitely**.Sockets logic is flawed, TCP keepalive is not properly configured. 
-This caused the AlarmServer to stop receiving events from the Envisalink module without any clear error. 
+## Problem & Fix
 
-This version fixes above problems and cleans code a bit.
+Envisalink connections would sometimes become unresponsive, causing the proxy to hang indefinitely. Restarting AlarmServer or EVL was required.
 
-WEB rest interface doesn't seem to work correctly.
+**Root cause:**  
+Envisalink allows only one TCP client at a time. Old connections were not properly closed, preventing new ones from being established.
+
+**This update fixes:**
+
+- Aggressive cleanup of previous connections before reconnect
+- Improved reconnection logic and error handling (`StreamClosedError`, timeouts)
+- Sequential and stable login procedure
+- Automatic Envisalink reboot after max reconnection attempts
+- Better state management (`_connected`, `_reconnecting`, `_busy`)
+- Implements alarmserver<>evl keepalive
+- other minor fixes, code cleanup, error handling, proper logging, config cleanup and python 3.8 migration
+
+Proxy now responds `999` when not connected to EVL.
 
