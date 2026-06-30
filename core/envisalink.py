@@ -417,42 +417,55 @@ class Client:
             except Exception as e:
                 logger.warning(f"Unexpected error in handle_line: {type(e).__name__} - reconnecting")
                 tornado.ioloop.IOLoop.current().add_callback(self._reconnect)
-                break
+                break    
 
     def format_event(self, event, parameters):
-        """Format event message for logging"""
-        if 'type' not in event or 'name' not in event:
-            return event.get('name', 'Unknown event')
-  
+        """Format event message for logging and display.
+        
+        Safely handles different event templates and missing 'type' keys.
+        """
+        if not event or 'name' not in event:
+            return "Unknown event"
+    
+        template = event.get('name', 'Unknown')
+        event_type = event.get('type')  # Safe get - may be None
+    
         try:
-            if event['type'] == 'partition':
-                p = int(parameters[0]) if len(parameters) > 0 else 0
-                partition_name = str(config.PARTITIONNAMES.get(p, f"Partition {p}"))
-  
-
-                name_template = event['name']
-                if '{}' in name_template or '{0}' in name_template:
-                    return name_template.format(partition_name)
+            # === PARTITION EVENTS ===
+            if event_type == 'partition':
+                p = int(parameters[0]) if len(parameters) > 0 and parameters[0].isdigit() else 0
+                partition_name = config.PARTITIONNAMES.get(p, f"Partition {p}")
+    
+                if '{1}' in template:
+                    armed_mode = "Unknown"
+                    return template.format(partition_name, armed_mode)
                 else:
-                    return name_template
-  
-            elif event['type'] == 'zone':
-                z = int(parameters) if parameters.isdigit() else 0
-                zone_name = str(config.ZONENAMES.get(z, f"Zone {z}"))
-  
-                name_template = event['name']
-                if '{}' in name_template or '{0}' in name_template:
-                    return name_template.format(zone_name)
-                else:
-                    return name_template
-  
+                    return template.format(partition_name)
+    
+            # === ZONE EVENTS ===
+            elif event_type == 'zone':
+                z = int(parameters) if str(parameters).isdigit() else 0
+                zone_name = config.ZONENAMES.get(z, f"Zone {z}")
+                return template.format(zone_name)
+    
+            # === ALL OTHER EVENTS (including 500 Command Acknowledge) ===
             else:
-              
-                return event['name'].format(str(parameters)) if '{}' in event['name'] else event['name']
-  
+                # Replace {0} or {} with the parameters
+                if '{}' in template:
+                    return template.format(parameters)
+                elif '{0}' in template:
+                    return template.format(parameters)
+                else:
+                    return template  # no placeholder
+    
         except Exception as e:
-            logger.warning(f"Error formatting event {event.get('name')}: {e}")
-            return event.get('name', 'Unknown event')
+            logger.warning(f"Error formatting event '{template}' with params '{parameters}': {e}")
+            # Fallback: return the template with placeholder replaced manually if possible
+            if '{0}' in template:
+                return template.replace('{0}', str(parameters))
+            return template
+        
+
 
     def handle_event(self, code, parameters, event, message):
         """Default handler for events"""
