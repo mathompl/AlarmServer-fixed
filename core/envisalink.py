@@ -188,90 +188,103 @@ class Client:
 
     @gen.coroutine
     def perform_login(self):
-        """Perform Envisalink login sequence - sequential way"""
-        logger.info("=== LOGIN SEQUENCE START ===")
+        """Perform Envisalink login sequence with up to 5 attempts"""
         self._logging_in = True
-
+        max_attempts = 5
+    
         try:
-            # Step 1: Wait for initial message (should be 505 3)
-            logger.debug("Waiting for initial login message...")
-            line = yield gen.with_timeout(
-                datetime.timedelta(seconds=15),
-                self._connection.read_until(self._terminator)
-            )
+            for attempt in range(1, max_attempts + 1):
+                logger.info(f"Login attempt {attempt}/{max_attempts}")
+    
+                try:
+                    # Step 1: Wait for initial message (505 3 - Password Request)
+                    logger.debug("Waiting for initial login message (505 3)...")
+                    line = yield gen.with_timeout(
+                        datetime.timedelta(seconds=15),
+                        self._connection.read_until(self._terminator)
+                    )
 
-            #logger.info(f"RAW RECEIVED: {repr(line)}")
-            parsed = self.parse_tpi_message(line)
-            if parsed:
-                code, parameters, _, message = parsed
-                logger.info(f"Received: {code} {parameters} - {message}")
+                    parsed = self.parse_tpi_message(line)
+                    if parsed:
+                        code, parameters, _, message = parsed
+                        logger.debug(f"Received: {code} {parameters} - {message}")
+    
+                    if not parsed or code != 505 or parameters != '3':
+                        logger.warning(f"Attempt {attempt}: Did not receive password request (505 3)")
+                        if attempt < max_attempts:
+                            yield gen.sleep(3)
+                            continue
+                        else:
+                            logger.error("All login attempts failed - no password prompt")
+                            return False
+    
+                    # Step 2: Send password
+                    logger.debug("Sending password...")
+                    yield gen.sleep(0.2)
+                    self.send_command('005', config.ENVISALINKPASS)
+    
+                    # Step 3: Wait for Command Acknowledge (500)
+                    logger.debug("Waiting for command acknowledge (500)...")
+                    line = yield gen.with_timeout(
+                        datetime.timedelta(seconds=10),
+                        self._connection.read_until(self._terminator)
+                    )
+    
+                    parsed = self.parse_tpi_message(line)
+                    if parsed:
+                        code, parameters, _, message = parsed
+                        logger.debug(f"Received: {code} {parameters} - {message}")
+    
+                    # Step 4: Wait for final login status (505 1 = Success)
+                    logger.debug("Waiting for login confirmation (505 1)...")
+                    line = yield gen.with_timeout(
+                        datetime.timedelta(seconds=10),
+                        self._connection.read_until(self._terminator)
+                    )
+    
+                    parsed = self.parse_tpi_message(line)
+                    if parsed:
+                        code, parameters, _, message = parsed
+                        logger.debug(f"Received: {code} {parameters} - {message}")
+    
+                        if code == 505 and parameters == '1':
+                            logger.info("Logged in")
+                            yield gen.sleep(0.3)
+                            self.send_command('001')  # Request full status
+                            return True
 
-            if not parsed or code != 505 or parameters != '3':
-                logger.error("Did not receive password request (505 3)")
-                return False
-
-            # Step 2: Send password
-            logger.info("Password requested - sending login command")
-            yield gen.sleep(0.15)
-            logger.info("SENDING password...")
-            self.send_command('005', config.ENVISALINKPASS)
-
-            # Step 3: Wait for Command Acknowledge (500)
-            logger.debug("Waiting for command acknowledge...")
-            line = yield gen.with_timeout(
-                datetime.timedelta(seconds=10),
-                self._connection.read_until(self._terminator)
-            )
-
-            #logger.info(f"RAW RECEIVED: {repr(line)}")
-            parsed = self.parse_tpi_message(line)
-            if parsed:
-                code, parameters, _, message = parsed
-                logger.info(f"Received: {code} {parameters} - {message}")
-
-            if code != 500:
-                logger.warning("Did not receive command acknowledge (500)")
-
-            # Step 4: Wait for final login status (505 1)
-            logger.debug("Waiting for login status...")
-            line = yield gen.with_timeout(
-                datetime.timedelta(seconds=10),
-                self._connection.read_until(self._terminator)
-            )
-
-            #logger.info(f"RAW RECEIVED: {repr(line)}")
-            parsed = self.parse_tpi_message(line)
-            if parsed:
-                code, parameters, _, message = parsed
-                logger.info(f"Received: {code} {parameters} - {message}")
-
-                if code == 505 and parameters == '1':
-                    logger.info("LOGIN SUCCESS")
-                    yield gen.sleep(0.3)
-                    self.send_command('001')
-                    logger.info("=== LOGIN SEQUENCE FINISHED SUCCESSFULLY ===")
-                    return True
-                elif code == 505 and parameters == '0':
-                    logger.error("LOGIN FAILED - Wrong password")
-                    sys.exit(1)
-
-            logger.error("Did not receive login confirmation (505 1)")
+                        elif code == 505 and parameters == '0':
+                            logger.error("LOGIN FAILED - Wrong password")
+                            sys.exit(1)
+    
+                    logger.warning(f"Attempt {attempt}: Login not confirmed")
+                    if attempt < max_attempts:
+                        yield gen.sleep(3)
+    
+                except gen.TimeoutError:
+                    logger.warning(f"Attempt {attempt}: Timeout")
+                    if attempt < max_attempts:
+                        yield gen.sleep(3)
+                        continue
+                    return False
+    
+                except StreamClosedError:
+                    logger.error("Connection lost during login")
+                    return False
+    
+                except Exception as e:
+                    logger.error(f"Error on attempt {attempt}: {type(e).__name__} - {e}")
+                    if attempt < max_attempts:
+                        yield gen.sleep(3)
+                        continue
+                    return False
+    
+            logger.error("All login attempts failed")
             return False
-
-        except gen.TimeoutError:
-            logger.error("Timeout during login sequence")
-            return False
-
-            
-        except StreamClosedError:
-            logger.error("StreamClosedError during login sequence")
-            return False
-
-        except Exception as e:
-            logger.error(f"Error during login: {type(e).__name__} - {e}")
-            return False
+    
         finally:
             self._logging_in = False
+
 
     @gen.coroutine
     def _reconnect(self):
