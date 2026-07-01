@@ -63,9 +63,10 @@ class Client:
         self._reconnecting = False
         self._reconnect_attempt = 1
         self.do_connect()
+        self._so_timeout = 45
         self.busy = True
         # Periodic keepalive
-        tornado.ioloop.PeriodicCallback(self.keepalive_poll, 10000).start()
+        tornado.ioloop.PeriodicCallback(self.keepalive_poll, 30000).start()
 
     def update_activity(self):
         """Update last activity timestamp"""
@@ -399,7 +400,7 @@ class Client:
             if not rawinput:
                 try:
                     rawinput = yield gen.with_timeout(
-                        datetime.timedelta(seconds=25),
+                        datetime.timedelta(seconds=self._so_timeout),
                         self._connection.read_until(self._terminator)
                     )
                 except Exception:
@@ -420,7 +421,7 @@ class Client:
             # === Read next message ===
             try:
                 rawinput = yield gen.with_timeout(
-                    datetime.timedelta(seconds=25),
+                    datetime.timedelta(seconds=self._so_timeout),
                     self._connection.read_until(self._terminator)
                 )
             except gen.TimeoutError:
