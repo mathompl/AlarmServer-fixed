@@ -295,10 +295,9 @@ class Client:
 
     @gen.coroutine
     def _reconnect(self):
-
-
         try:
           logger.info("Trying to reconnect ...")
+          self._notify_proxy_disconnected()
           self._connection.close()
           self._connection = None
           self._connected = False
@@ -534,6 +533,11 @@ class Client:
             self.send_command('001')
         elif type == 'ping':
             self.send_command('000')
+
+
+    def _notify_proxy_disconnected(self):
+        events.put('proxy_status', None, None, "999")  
+
 
     @gen.coroutine
     def envisalink_proxy(self, eventType, type, parameters, *args):
