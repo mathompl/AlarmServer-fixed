@@ -197,7 +197,7 @@ class Client:
     def perform_login(self):
         """Perform Envisalink login sequence with up to 5 attempts"""
         self._logging_in = True
-        max_attempts = 5
+        max_attempts = 3
     
         try:
             for attempt in range(1, max_attempts + 1):
@@ -282,7 +282,7 @@ class Client:
                 except Exception as e:
                     logger.error(f"Error on attempt {attempt}: {type(e).__name__} - {e}")
                     if attempt < max_attempts:
-                        yield gen.sleep(3)
+                        yield gen.sleep(5)
                         continue
                     return False
     
@@ -296,15 +296,48 @@ class Client:
     @gen.coroutine
     def _reconnect(self):
         try:
-          logger.info("Trying to reconnect ...")
-          self._notify_proxy_disconnected()
-          self._connection.close()
-          self._connection = None
-          self._connected = False
-          self._reconnecting = True
-          yield self.do_connect(reconnect=True)
+            logger.info("Trying to reconnect to Envisalink...")
+            self._force_close_connection()
+            self._notify_proxy_disconnected()
+            self._connected = False
+            self._reconnecting = True
+            yield gen.sleep(self._retrydelay)   
+            yield self.do_connect(reconnect=True)
+    
         except Exception as e:
             logger.error(f"Error during reconnection: {e}")
+            yield gen.sleep(5)
+    
+    def _force_close_connection(self):
+        if not hasattr(self, '_connection') or self._connection is None:
+            return
+    
+        stream = self._connection
+        try:
+            if not stream.closed():
+                sock = getattr(stream, 'socket', None)
+    
+                if sock is not None:
+                    try:
+                        sock.setsockopt(
+                            socket.SOL_SOCKET,
+                            socket.SO_LINGER,
+                            struct.pack('ii', 1, 0)
+                        )
+                    except Exception:
+                        pass
+    
+                    try:
+                        sock.shutdown(socket.SHUT_RDWR)
+                    except Exception:
+                        pass
+    
+                stream.close(exc_info=True)
+
+        except Exception as e:
+            logger.debug(f"Force close error: {e}")
+        finally:
+            self._connection = None    
 
 
     @gen.coroutine
