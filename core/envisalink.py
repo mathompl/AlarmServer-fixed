@@ -6,6 +6,7 @@ Handles TCP connection to Envisalink 2DS/3/4.
 """
 
 import requests
+import struct
 import time
 import sys
 import re
@@ -123,6 +124,7 @@ class Client:
                     logger.error(f"Reconnection attempts ({self._max_attempts}) - rebooting Envisalink.")
                     self.reboot_envisalink()
                     self._reconnect_attempt = 0
+                    yield gen.sleep(15) 
 
 
                 if self._reconnect_attempt > self._max_attempts:
@@ -183,6 +185,7 @@ class Client:
                 self._reconnect_attempt = 1
                 self.busy = False
                 self.handle_line(None)    
+                self._connected = True
 
                 return
 
@@ -301,6 +304,7 @@ class Client:
             self._notify_proxy_disconnected()
             self._connected = False
             self._reconnecting = True
+            self._connected = False
             yield gen.sleep(self._retrydelay)   
             yield self.do_connect(reconnect=True)
     
@@ -316,28 +320,22 @@ class Client:
         try:
             if not stream.closed():
                 sock = getattr(stream, 'socket', None)
-    
                 if sock is not None:
                     try:
-                        sock.setsockopt(
-                            socket.SOL_SOCKET,
-                            socket.SO_LINGER,
-                            struct.pack('ii', 1, 0)
-                        )
+                        sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
+                                        struct.pack('ii', 1, 0))
                     except Exception:
                         pass
-    
                     try:
                         sock.shutdown(socket.SHUT_RDWR)
                     except Exception:
                         pass
-    
                 stream.close(exc_info=True)
-
         except Exception as e:
             logger.debug(f"Force close error: {e}")
         finally:
-            self._connection = None    
+            self._connection = None
+
 
 
     @gen.coroutine
