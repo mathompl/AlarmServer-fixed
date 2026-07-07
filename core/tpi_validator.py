@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-TPI Command Validator for Envisalink
+TPI Command Validator
+- Checks command existence
+- Checks data length
+- Verifies checksum (CRC) when it is present
 """
 
 from __future__ import annotations
@@ -13,12 +16,14 @@ def to_chars(string: str) -> list[int]:
 
 
 def get_checksum(code: str, data: str) -> str:
+    """Calculate expected TPI checksum"""
     return ("%02X" % sum(to_chars(code) + to_chars(data)))[-2:]
 
 
 APPLICATION_COMMANDS = {
     '000': {'min_len': 0, 'max_len': 0, 'desc': 'Poll'},
     '001': {'min_len': 0, 'max_len': 0, 'desc': 'Status Report'},
+    '008': {'min_len': 0, 'max_len': 0, 'desc': 'Dump Zone Timers'},
     '005': {'min_len': 1, 'max_len': 10, 'desc': 'Network Login'},
     '010': {'min_len': 10, 'max_len': 10, 'desc': 'Set Time & Date'},
     '020': {'min_len': 2, 'max_len': 2, 'desc': 'Command Output Control'},
@@ -32,7 +37,7 @@ APPLICATION_COMMANDS = {
     '057': {'min_len': 1, 'max_len': 1, 'desc': 'Temperature Broadcast Control'},
     '060': {'min_len': 1, 'max_len': 1, 'desc': 'Trigger Panic'},
     '070': {'min_len': 1, 'max_len': 1, 'desc': 'Single Keystroke'},
-    '071': {'min_len': 2, 'max_len': 20, 'desc': 'Send Keystroke String'},  # zwiększony max
+    '071': {'min_len': 2, 'max_len': 20, 'desc': 'Send Keystroke String'},
     '072': {'min_len': 1, 'max_len': 1, 'desc': 'Enter User Code Programming'},
     '073': {'min_len': 1, 'max_len': 1, 'desc': 'Enter User Programming'},
     '074': {'min_len': 1, 'max_len': 1, 'desc': 'Keep Alive'},
@@ -47,70 +52,54 @@ def validate_tpi_command(raw_input: str) -> tuple[bool, str, dict]:
 
     cmd_str = raw_input.strip().rstrip('\r\n')
 
-    # Usuń opcjonalny timestamp
+    # Remove optional timestamp
     if re.match(r'^\d{2}:\d{2}:\d{2} ', cmd_str):
         cmd_str = cmd_str[9:]
 
+    if len(cmd_str) < 3:
+        return False, "Command too short", {}
+
     code = cmd_str[:3]
+    rest = cmd_str[3:]
 
     if code not in APPLICATION_COMMANDS:
         return False, f"Unknown command: {code}", {'code': code}
 
     cmd_info = APPLICATION_COMMANDS[code]
-    data_part = cmd_str[3:]
+    expected_len = cmd_info['max_len']
 
-    # === Specjalna obsługa dla komend z klawiszami (070 i 071) ===
-    if code in ('070', '071'):
-        # Dla 071: pierwszy znak = partition, reszta = klawisze
-        if code == '071':
-            if not data_part or not data_part[0].isdigit():
-                return False, "071: Missing or invalid partition", {'code': code}
+    # === Check if checksum is present (last 2 characters) ===
+    has_checksum = False
+    data = rest
+    provided_checksum = None
 
-            partition = data_part[0]
-            keys = data_part[1:]
-
-            if not (1 <= int(partition) <= 8):
-                return False, f"071: Invalid partition {partition}", {'code': code}
-
-            # Dozwolone znaki dla 071
-            if not all(k in '0123456789*#' for k in keys):
-                return False, f"071: Invalid key characters: {keys}", {'code': code}
-
-            return True, "Valid", {
-                'code': code,
-                'data': data_part,
-                'description': cmd_info['desc']
-            }
-
-        # 070 - tylko dla partition 1
-        if not all(k in '0123456789*#' + 'A' for k in data_part):
-            return False, f"070: Invalid characters", {'code': code}
-
-        return True, "Valid", {'code': code, 'data': data_part, 'description': cmd_info['desc']}
-
-    # === Dla pozostałych komend wymagamy hex + checksum ===
-    if not re.match(r'^[0-9A-Fa-f]+$', cmd_str):
-        return False, f"Invalid characters (hex digits only): {cmd_str[:40]}", {'code': code}
-
-    if len(cmd_str) < 5:
-        return False, "Command too short", {'code': code}
-
-    data = cmd_str[3:-2]
-    provided_cksum = cmd_str[-2:].upper()
-    expected_cksum = get_checksum(code, data)
-
-    if provided_cksum != expected_cksum:
-        return False, f"Checksum mismatch for {code}", {'code': code, 'data': data}
+    if len(rest) == expected_len + 2:
+        # Likely command with checksum
+        data = rest[:-2]
+        provided_checksum = rest[-2:].upper()
+        has_checksum = True
 
     data_len = len(data)
+
+    # Length validation
     if not (cmd_info['min_len'] <= data_len <= cmd_info['max_len']):
         return False, (
-            f"Invalid data length for {code}: got {data_len}, "
-            f"expected {cmd_info['min_len']}-{cmd_info['max_len']}"
+            f"{code}: Invalid data length "
+            f"(got {data_len}, expected {cmd_info['min_len']}-{cmd_info['max_len']})"
         ), {'code': code}
+
+    # === Verify checksum if it was provided ===
+    if has_checksum:
+        expected_checksum = get_checksum(code, data)
+        if provided_checksum != expected_checksum:
+            return False, (
+                f"{code}: Checksum mismatch "
+                f"(got {provided_checksum}, expected {expected_checksum})"
+            ), {'code': code}
 
     return True, "Valid", {
         'code': code,
         'data': data,
-        'description': cmd_info['desc']
+        'description': cmd_info['desc'],
+        'has_checksum': has_checksum
     }

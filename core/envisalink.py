@@ -573,31 +573,47 @@ class Client:
 
     @gen.coroutine
     def envisalink_proxy(self, eventType, type, parameters, *args):
-        """Forward commands from proxy clients to the real Envisalink (with validation)"""
+        """
+        Forward commands received from proxy clients to the real Envisalink module.
+        All commands are validated before being sent.
+        """
+        # Check if we have an active connection to Envisalink
         if self._connection is None or self._reconnecting:
             events.put('proxy_status', None, None, "999")
             return False
     
+        # Get the raw command string
         if isinstance(parameters, str):
             to_send = parameters
         else:
             to_send = str(parameters)
     
+        # Validate the command using our TPI validator
         is_valid, error_msg, info = validate_tpi_command(to_send)
     
         if not is_valid:
-            logger.warning(f"Proxy command rejected: {error_msg} | Raw: {to_send[:60]}")
-            events.put('proxy_status', None, None, "998")  # Validation error
+            # Extract command code safely for logging and error reporting
+            cmd_code = to_send.strip()[:3] if to_send else "???"
+    
+            logger.warning(
+                f"Proxy command rejected | "
+                f"Command: {cmd_code} | "
+                f"Error: {error_msg} | "
+                f"Raw: {to_send.strip()[:80]}"
+            )
+    
+            # Send error status back to the proxy client (e.g. Home Assistant)
+            events.put('proxy_status', None, None, f"998 {cmd_code} - {error_msg[:60]}")
             return False
     
-        # Ensure proper line ending
+        # Ensure the command ends with proper line termination
         clean_cmd = to_send.strip()
         if not clean_cmd.endswith('\r\n'):
             clean_cmd += '\r\n'
     
         try:
             yield self._connection.write(clean_cmd.encode('ascii'))
-            logger.info(f'PROXY > {clean_cmd.strip()}  [{info.get("description", "")}]')
+            #logger.debug(f'PROXY > {clean_cmd.strip()} [{info.get("description", "")}]')
             return True
         except Exception as e:
             logger.error(f"Proxy forward error: {e}")
