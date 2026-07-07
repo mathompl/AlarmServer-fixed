@@ -20,6 +20,7 @@ from socket import gaierror
 from core.envisalinkdefs import evl_ResponseTypes
 from core.envisalinkdefs import evl_Defaults
 from core.envisalinkdefs import evl_ArmModes
+from core.tpi_validator import validate_tpi_command
 
 from core import logger
 import tornado.ioloop
@@ -572,24 +573,37 @@ class Client:
 
     @gen.coroutine
     def envisalink_proxy(self, eventType, type, parameters, *args):
-        """Forward command from Proxy clients to real Envisalink"""
+        """Forward commands from proxy clients to the real Envisalink (with validation)"""
         if self._connection is None or self._reconnecting:
-            status = "999"
-            events.put('proxy_status', None, None, status)
+            events.put('proxy_status', None, None, "999")
             return False
-
+    
+        if isinstance(parameters, str):
+            to_send = parameters
+        else:
+            to_send = str(parameters)
+    
+        is_valid, error_msg, info = validate_tpi_command(to_send)
+    
+        if not is_valid:
+            logger.warning(f"Proxy command rejected: {error_msg} | Raw: {to_send[:60]}")
+            events.put('proxy_status', None, None, "998")  # Validation error
+            return False
+    
+        # Ensure proper line ending
+        clean_cmd = to_send.strip()
+        if not clean_cmd.endswith('\r\n'):
+            clean_cmd += '\r\n'
+    
         try:
-            if isinstance(parameters, str):
-                to_send = parameters + '\r\n'
-            else:
-                to_send = parameters
-
-            yield self._connection.write(to_send.encode('ascii'))
-            logger.debug(f'PROXY > {to_send.strip()}')
-        except (StreamClosedError, AttributeError, TypeError) as e:
-            logger.debug(f'Proxy forward error: {e}')
-
-
+            yield self._connection.write(clean_cmd.encode('ascii'))
+            logger.info(f'PROXY > {clean_cmd.strip()}  [{info.get("description", "")}]')
+            return True
+        except Exception as e:
+            logger.error(f"Proxy forward error: {e}")
+            return False
+    
+    
 if __name__ == "__main__":
     client = Client()
     tornado.ioloop.IOLoop.current().start()
