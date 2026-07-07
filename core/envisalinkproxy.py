@@ -164,11 +164,16 @@ class ProxyConnection(object):
                 line_str = line.decode('ascii', errors='replace')
                 core_cmd = line_str[:3] if len(line_str) >= 3 else line_str
         
+
+                data_part = line_str[3:]
+                if len(data_part) >= 2 and data_part[-2:].isalnum():   
+
+                    data_part = data_part[:-2]
+    
                 logger.debug(
                     f'Client {self.address[0]}:{self.address[1]} '
-                    f'RX < {core_cmd} {get_command_name(line_str)} '
+                    f'RX < {core_cmd} {get_command_name(line_str)} | Data: "{data_part}"'
                 )
-
 
                 if not line:
                     continue
