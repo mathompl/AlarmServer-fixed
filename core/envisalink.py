@@ -596,14 +596,13 @@ class Client:
             cmd_code = to_send.strip()[:3] if to_send else "???"
     
             logger.warning(
-                f"Proxy command rejected | "
-                f"Command: {cmd_code} | "
+                f"Proxy command: {cmd_code} rejected | "
                 f"Error: {error_msg} | "
                 f"Raw: {to_send.strip()[:80]}"
             )
-    
+
             # Send error status back to the proxy client (e.g. Home Assistant)
-            events.put('proxy_status', None, None, f"998 {cmd_code} - {error_msg[:60]}")
+            events.put('proxy_status', None, None, f"998 {error_msg[:60]}")
             return False
     
         # Ensure the command ends with proper line termination

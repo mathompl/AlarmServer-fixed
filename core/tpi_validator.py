@@ -42,7 +42,7 @@ APPLICATION_COMMANDS = {
     '073': {'min_len': 1, 'max_len': 1, 'desc': 'Enter User Programming'},
     '074': {'min_len': 1, 'max_len': 1, 'desc': 'Keep Alive'},
     '080': {'min_len': 0, 'max_len': 0, 'desc': 'Request Interior HVAC'},
-    '200': {'min_len': 4, 'max_len': 6, 'desc': 'Code Send'},
+    '200': {'min_len': 0, 'max_len': 6, 'desc': 'Code Send'},
 }
 
 

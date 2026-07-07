@@ -46,18 +46,16 @@ class ProxyServer(TCPServer):
 
     @gen.coroutine
     def proxy_status(self, event_name, zone, parameters, message):
-        """Wysyłanie statusu do klientów proxy"""
         if not self.connections or not message:
             return
 
-        # Upewniamy się, że jest \r\n na końcu
         if isinstance(message, str):
             msg = message
             if not msg.endswith('\r\n'):
                 msg += '\r\n'
         else:
             msg = str(message) + '\r\n'
-        logger.debug(f'PROXY > {message} {get_command_name(message)}')
+        logger.debug(f'PROXY > {message}')
 
 
         for conn in list(self.connections.values()):
@@ -144,9 +142,8 @@ class ProxyConnection(object):
         pass
 
     def _check_rate_limit(self):
-        """Prosty rate limiter – zwraca True jeśli można wysłać komendę"""
         now = time.time()
-        # Usuń stare wpisy
+
         self._last_commands = [t for t in self._last_commands if now - t < self._rate_window]
 
         if len(self._last_commands) >= self._rate_limit:
@@ -177,7 +174,7 @@ class ProxyConnection(object):
                     continue
 
                 if self.authenticated:
-                    # Przekazujemy jako STRING (to jest ważne!)
+
                     if not self._check_rate_limit():
                         logger.warning(f'Rate limit exceeded for {self.address[0]}:{self.address[1]} - dropping command')
                         continue

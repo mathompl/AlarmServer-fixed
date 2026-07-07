@@ -21,6 +21,7 @@ evl_ClientCommands = {
     "074": "Keep Alive",
     "080": "Request Interior HVAC Broadcast",
     "200": "Send Code",
+    "998": "Malformed command",
     "999": "No connection to EVL"
 }
 
@@ -29,4 +30,4 @@ def get_command_name(command: str) -> str:
     if not command:
         return "Empty"
     core = command[:3]
-    return evl_ClientCommands.get(core, f"Nieznana komenda ({core})")
+    return evl_ClientCommands.get(core, f"Unknown command ({core})")
