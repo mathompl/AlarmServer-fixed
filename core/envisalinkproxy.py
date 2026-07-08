@@ -2,6 +2,7 @@ from core import logger
 from collections import defaultdict
 
 import time
+import datetime
 from tornado.ioloop import PeriodicCallback
 
 from tornado import gen
@@ -157,7 +158,7 @@ class ProxyConnection(object):
             while True:
                 try:
                     line = yield gen.with_timeout(
-                        datetime.timedelta(seconds=300),          
+                        datetime.timedelta(seconds=300),
                         self.stream.read_until(b'\r\n')
                     )
                 except gen.TimeoutError:
