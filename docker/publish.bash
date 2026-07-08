@@ -1,4 +1,4 @@
-cd ..
+#cd ..
 VERSION=$(date +"%Y.%m.%d") 
 
 

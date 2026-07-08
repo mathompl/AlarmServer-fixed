@@ -266,9 +266,9 @@ class Client:
                             return True
 
                         elif code == 505 and parameters == '0':
-                            logger.error("LOGIN FAILED - Wrong password")
-                            sys.exit(1)
-    
+                            logger.error("LOGIN FAILED")
+                            return False
+
                     logger.warning(f"Attempt {attempt}: Login not confirmed")
                     if attempt < max_attempts:
                         yield gen.sleep(3)
@@ -550,19 +550,20 @@ class Client:
         """Default handler for events"""
         if 'type' not in event:
             return
-  
+
         event_type = event['type']
-  
 
         if event_type == 'zone':
-            if parameters not in config.ZONENAMES:
+            zone_id = int(parameters)
+            if zone_id not in config.ZONENAMES:
                 return
-            parameters = int(parameters)
-  
+            parameters = zone_id
+
         elif event_type == 'partition':
-            if parameters not in config.PARTITIONNAMES:
+            partition_id = int(parameters)
+            if partition_id not in config.PARTITIONNAMES:
                 return
-            parameters = int(parameters)
+            parameters = partition_id
   
         try:
             defaultStatus = evl_Defaults[event_type]
