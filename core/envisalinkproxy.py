@@ -182,7 +182,7 @@ class ProxyConnection(object):
     
                 logger.debug(
                     f'Client {self.address[0]}:{self.address[1]} '
-                    f'RX < {core_cmd} {get_command_name(line_str)} | Data: "{data_part}"'
+                    f'RX < {core_cmd} - {get_command_name(line_str)} [{data_part}]'
                 )
 
                 if not line:

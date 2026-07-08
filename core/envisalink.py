@@ -21,6 +21,7 @@ from core.envisalinkdefs import evl_ResponseTypes
 from core.envisalinkdefs import evl_Defaults
 from core.envisalinkdefs import evl_ArmModes
 from core.tpi_validator import validate_tpi_command
+from core.envisalinkcommands import get_command_name
 
 from core import logger
 import tornado.ioloop
@@ -349,9 +350,15 @@ class Client:
         else:
             to_send = code + data + '\r\n'
 
+
+        try:
+            cmd_name = get_command_name(to_send.strip())
+            logger.debug(f'TX > {code} - {cmd_name} [{data}]')
+        except Exception:
+            logger.debug(f'TX > {code} [{data}]')
+    
         try:
             yield self._connection.write(to_send.encode('ascii'))
-            logger.debug(f'TX > {to_send[:-1]}')
         except (StreamClosedError, AttributeError, TypeError):
             pass
 
@@ -446,7 +453,7 @@ class Client:
                 except Exception as e:
                     logger.warning(f"Unexpected error while reading: {type(e).__name__}")
                     break
-    
+
             parsed = self.parse_tpi_message(rawinput)
             if not parsed:
                 rawinput = None
