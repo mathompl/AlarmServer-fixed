@@ -155,7 +155,16 @@ class ProxyConnection(object):
     def dispatch_client(self):
         try:
             while True:
-                line = yield self.stream.read_until(b'\r\n')
+                try:
+                    line = yield gen.with_timeout(
+                        datetime.timedelta(seconds=300),          
+                        self.stream.read_until(b'\r\n')
+                    )
+                except gen.TimeoutError:
+                    logger.warning(f'Client {self.address[0]}:{self.address[1]} timed out (no data for 5 minutes)')
+                    self.stream.close()
+                    break
+
                 line = line.strip()
 
                 if not line:
