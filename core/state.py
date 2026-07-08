@@ -42,21 +42,21 @@ class state():
         #if this is the first event in this zone/partition we've seen, don't do anything here.
         if prev_status != None:
             #if we've seen this before, check if it's changed
-            if prev_status == state.state[type][parameters]['status']:
-                logger.debug('Discarded event. State not changed. ({} {})'.format(event['type'], parameters))
-            else:
+            if prev_status != state.state[type][parameters]['status']:
+                #logger.debug('Discarded event. State not changed. ({} {})'.format(event['type'], parameters))
+            #else:
                 events.put('statechange', type, parameters, code, event, message, defaultStatus)
         else:
             events.put('stateinit', type, parameters, code, event, message, defaultStatus)
 
         #write event
-        state.state[type][parameters]['lastevents'].append({  
-                  'datetime' : str(datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")), 
+        state.state[type][parameters]['lastevents'].append({
+                  'datetime' : str(datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")),
                   'code'     : code,
                   'message'  : message})
 
         #write to all events
-        state.state[type]['lastevents'].append({  
-                  'datetime' : str(datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")), 
+        state.state[type]['lastevents'].append({
+                  'datetime' : str(datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")),
                   'code'     : code,
                   'message'  : message})

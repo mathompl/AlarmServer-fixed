@@ -423,52 +423,73 @@ class Client:
 
     @gen.coroutine
     def handle_line(self, rawinput):
-        """Main line processing loop"""
+        """Main line processing loop with early filtering of unknown zones/partitions"""
         while True:
             self.update_activity()
             self._pending_poll = False
     
+            # === Read next message at the beginning of the loop ===
             if not rawinput:
                 try:
                     rawinput = yield gen.with_timeout(
                         datetime.timedelta(seconds=self._so_timeout),
                         self._connection.read_until(self._terminator)
                     )
-                except Exception:
+                except gen.TimeoutError:
+                    logger.warning("Read timeout from EVL - forcing reconnect")
+                    tornado.ioloop.IOLoop.current().add_callback(self._reconnect)
                     break
-
+                except StreamClosedError:
+                    logger.debug("StreamClosedError in handle_line - forcing reconnect")
+                    tornado.ioloop.IOLoop.current().add_callback(self._reconnect)
+                    break
+                except Exception as e:
+                    logger.warning(f"Unexpected error while reading: {type(e).__name__}")
+                    break
+    
             parsed = self.parse_tpi_message(rawinput)
             if not parsed:
-                break
-
+                rawinput = None
+                continue
+    
             code, parameters, event, message = parsed
+    
+            # === Filter unknown zones and partitions (if enabled) ===
+            ignore_unknown = getattr(config, 'IGNORE_UNKNOWN_ZONES', True)
+    
+            if ignore_unknown:
+                event_type = event.get('type') if event else None
+    
+                if event_type == 'zone':
+                    try:
+                        zone_id = int(parameters)
+                    except (ValueError, TypeError):
+                        zone_id = 0
+    
+                    if zone_id not in config.ZONENAMES:
+                        rawinput = None   # important: clear buffer before continue
+                        continue
+    
+                elif event_type == 'partition':
+                    try:
+                        partition_id = int(parameters[0]) if parameters else 0
+                    except (ValueError, TypeError, IndexError):
+                        partition_id = 0
+    
+                    if partition_id not in config.PARTITIONNAMES:
+                        rawinput = None
+                        continue
+    
+            # Log only allowed events
             logger.debug(f'RX < {code} - {message}')
-
+    
             try:
                 yield self.dispatch_event(code, parameters, event, message, rawinput)
             except Exception as e:
                 logger.error(f"Error handling event {code}: {e}")
-
-            # === Read next message ===
-            try:
-                rawinput = yield gen.with_timeout(
-                    datetime.timedelta(seconds=self._so_timeout),
-                    self._connection.read_until(self._terminator)
-                )
-            except gen.TimeoutError:
-                logger.warning("Read timeout from EVL - forcing reconnect")
-                tornado.ioloop.IOLoop.current().add_callback(self._reconnect)
-                break
-
-            except StreamClosedError:
-                logger.debug("StreamClosedError in handle_line - forcing reconnect")
-                tornado.ioloop.IOLoop.current().add_callback(self._reconnect)
-                break
-
-            except Exception as e:
-                logger.warning(f"Unexpected error in handle_line: {type(e).__name__} - reconnecting")
-                tornado.ioloop.IOLoop.current().add_callback(self._reconnect)
-                break    
+    
+            # Clear buffer so next iteration will read a new message
+            rawinput = None
 
     def format_event(self, event, parameters):
         """Format event message for logging and display.
@@ -522,18 +543,26 @@ class Client:
         """Default handler for events"""
         if 'type' not in event:
             return
+  
+        event_type = event['type']
+  
 
-        parameters = int(parameters)
+        if event_type == 'zone':
+            if parameters not in config.ZONENAMES:
+                return
+            parameters = int(parameters)
+  
+        elif event_type == 'partition':
+            if parameters not in config.PARTITIONNAMES:
+                return
+            parameters = int(parameters)
+  
         try:
-            defaultStatus = evl_Defaults[event['type']]
+            defaultStatus = evl_Defaults[event_type]
         except (IndexError, KeyError):
             defaultStatus = {}
-
-        if ((event['type'] == 'zone' and parameters in config.ZONENAMES) or
-                (event['type'] == 'partition' and parameters in config.PARTITIONNAMES)):
-            events.put('alarm', event['type'], parameters, code, event, message, defaultStatus)
-        else:
-            logger.debug(f'Ignoring unhandled event {event.get("type")}')
+  
+        events.put('alarm', event_type, parameters, code, event, message, defaultStatus)
 
     def handle_zone(self, code, parameters, event, message):
         """Handler for zone events"""

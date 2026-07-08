@@ -112,6 +112,7 @@ evl_ResponseTypes = {
     900 : {'name' : 'Code Required', 'description' : 'This command will tell the API to enter an access code. Once entered, the 200 command will be sent to perform the required action. The code should be entered within the window time of the panel.'},
     912 : {'name' : 'Command Output Pressed Partition {0[0]} Command {0[1]}', 'description' : 'This command will tell the API to enter an access code. Once entered, the 200 command will be sent to perform the required action. The code should be entered within the window time of the panel.'},
     921 : {'name' : 'Master Code Required', 'description' : 'This command will tell the API to enter a master access code. Once entered, the 200 command will be sent to perform the required action. The code should be entered within the window time of the panel.'},
-    922 : {'name' : 'Installers Code Required', 'description' : 'This command will tell the API to enter an installers access code. Once entered, the 200 command will be sent to perform the required action. The code should be entered within the window time of the panel.'},    
-    999 : {'name' : 'No connection to Envisalink', 'description' : 'This reponse is PROXY specific, informs client about PROXY<>EVL connection failure.'},    
+    922 : {'name' : 'Installers Code Required', 'description' : 'This command will tell the API to enter an installers access code. Once entered, the 200 command will be sent to perform the required action. The code should be entered within the window time of the panel.'},
+    998 : {'name' : 'Malformed command', 'description' : 'This reponse is PROXY specific, informs client about malformed command sent to Envisalink'},
+    999 : {'name' : 'No connection to Envisalink', 'description' : 'This reponse is PROXY specific, informs client about PROXY<>Envisalink connection failure.'},
   }

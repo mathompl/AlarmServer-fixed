@@ -40,9 +40,12 @@ class config:
         config.ENVISALINKPROXYPORT = config.read_config_var('envisalink', 'proxyport', config.ENVISALINKPORT, 'int')
         config.ENVISALINKPROXYPASS = config.read_config_var('envisalink', 'proxypass', config.ENVISALINKPASS, 'str')
         config.ALARMCODE = config.read_config_var('envisalink', 'alarmcode', 1111, 'int')
+        config.IGNORE_UNKNOWN_ZONES = config.read_config_var('alarmserver', 'ignore_unknown_zones', True, 'bool')
         config.EVENTTIMEAGO = config.read_config_var('alarmserver', 'eventtimeago', True, 'bool')
         config.LOGLEVEL = config.read_config_var('alarmserver', 'loglevel', 'INFO', 'str')
         config.LOGFILE = config.read_config_var('alarmserver', 'logfile', '', 'str')
+
+
 
         if config.LOGFILE == '':
             config.LOGTOFILE = False
