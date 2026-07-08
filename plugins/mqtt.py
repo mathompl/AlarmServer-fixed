@@ -63,7 +63,7 @@ async def connect_to_broker():
         logger.info("[MQTT] Successfully connected to broker")
 
 
-              
+
         events.register('statechange', lambda *args: asyncio.create_task(
             publish_state_change(client, *args)
         ))
@@ -102,7 +102,7 @@ async def publish_state_change(client, eventType, type, parameters, code, event,
             qos=1,
             retain=config.MQTT_RETAIN
         )
-        logger.debug("[MQTT] Published -> {} | is_init={}".format(topic, is_init))
+        #logger.debug("[MQTT] Published -> {} | is_init={}".format(topic, is_init))
 
     except Exception as e:
         logger.error("[MQTT] Publish failed for topic {}: {}".format(topic, e))
@@ -114,7 +114,7 @@ async def process_mqtt_command(message):
         topic = str(message.topic)
         payload_raw = message.payload.decode("utf-8", errors="ignore")
 
-        logger.debug("[MQTT] Command received -> Topic: {} | Payload: {}".format(topic, payload_raw))
+        #logger.debug("[MQTT] Command received -> Topic: {} | Payload: {}".format(topic, payload_raw))
 
         parts = topic.split("/")
 
