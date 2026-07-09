@@ -17,7 +17,7 @@ def init():
         events.register('statechange', sendStNotification, [], [])
         events.register('stateinit', sendStNotification, [], [])
 
-def sendStNotification(eventType, type, parameters, code, event, message, defaultStatus):
+def sendStNotification(eventType, type, parameters, code, event, message,name, defaultStatus):
     # logger.debug('sendStNotification')
     # logger.debug('eventType %s' % eventType)
     # logger.debug('type %s' % type)
@@ -26,10 +26,10 @@ def sendStNotification(eventType, type, parameters, code, event, message, defaul
     # logger.debug('event %s' % event)
     # logger.debug('message %s' % message)
     # logger.debug('defaultStatus %s' % defaultStatus)
-    smartthingsRequest(eventType, type, parameters, code, event, message, defaultStatus)
+    smartthingsRequest(eventType, type, parameters, code, event, message,name, defaultStatus)
 
 @gen.coroutine
-def smartthingsRequest(eventType, type, parameters, code, event, message, defaultStatus):
+def smartthingsRequest(eventType, type, parameters, code, event, message, name,defaultStatus):
     http_client = AsyncHTTPClient()
     url = 'garbage'
     if type == 'zone':

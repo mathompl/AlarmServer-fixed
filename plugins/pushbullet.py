@@ -18,7 +18,7 @@ def init():
             events.register('statechange', sendNotification, config.PUSHBULLET_IGNOREPARTITIONS, config.PUSHBULLET_IGNOREZONES)
             pushbulletRequest('login')
 
-def sendNotification(eventType, type, parameters, code, event, message, defaultStatus):
+def sendNotification(eventType, type, parameters, code, event, message, name,defaultStatus):
 	pushbulletRequest('notify', message)
 
 @gen.coroutine

@@ -13,13 +13,13 @@ def init():
     if config.DUMMY_STATE_ENABLE:
         events.register('statechange', dummy_handler)
         events.register('stateinit', dummy_handler)
-        
+
         logger.info('Dummy state handler enabled (statechange + stateinit)')
     else:
         logger.debug('Dummy state handler is disabled in config')
 
 
-def dummy_handler(eventType, type, parameters, code, event, message, defaultStatus):
+def dummy_handler(eventType, type, parameters, code, event, message, name, defaultStatus):
     """
     This handler does nothing on purpose.
     It only exists to consume statechange/stateinit events.

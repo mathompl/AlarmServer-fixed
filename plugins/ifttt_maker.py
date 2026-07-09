@@ -20,7 +20,7 @@ def init():
                 % (",".join([str (i) for i in config.IFTTT_MAKER_IGNOREPARTITIONS]), ",".join([str(i) for i in config.IFTTT_MAKER_IGNOREZONES])))
             events.register('statechange', sendNotification, config.IFTTT_MAKER_IGNOREPARTITIONS, config.IFTTT_MAKER_IGNOREZONES)
  
-def sendNotification(eventType, type, parameters, code, event, message, defaultStatus):
+def sendNotification(eventType, type, parameters, code, event, message, name, defaultStatus):
         iftttMakerRequest('notify', message)
 
 @gen.coroutine

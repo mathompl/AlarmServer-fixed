@@ -20,7 +20,7 @@ def init():
             events.register('statechange', sendNotification, config.PUSHOVER_IGNOREPARTITIONS, config.PUSHOVER_IGNOREZONES)
 
 @gen.coroutine
-def sendNotification(eventType, type, parameters, code, event, message, defaultStatus):
+def sendNotification(eventType, type, parameters, code, event, message, name, defaultStatus):
     http_client = AsyncHTTPClient()
     body = urllib.urlencode({
         "token": ALARMSERVER_PUSHOVER_TOKEN,
