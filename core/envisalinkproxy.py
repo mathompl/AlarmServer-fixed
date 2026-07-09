@@ -165,6 +165,8 @@ class ProxyConnection(object):
                     logger.warning(f'Client {self.address[0]}:{self.address[1]} timed out (no data for 5 minutes)')
                     self.stream.close()
                     break
+                    
+#                logger.debug ('RAW: '+str(line))
 
                 line = line.strip()
 
@@ -196,21 +198,23 @@ class ProxyConnection(object):
         
                     events.put('envisalink', None, line_str)
                 else:
-                    # Autentykacja
                     password = config.ENVISALINKPROXYPASS
-                    checksum = get_checksum('005', password)
-                    expected = ('005' + password + checksum).encode('ascii')
-                    expected_str = expected.decode('ascii', errors='replace')
-
- #                   logger.debug(f'PROXY > Auth check | Received="{line_str}" | Expected="{expected_str}"')
-
+                    expected = ('005' + password + get_checksum('005', password)).encode('ascii')
+    
                     if line == expected:
-                        logger.info(f'Proxy User Authenticated: {self.address[0]}:{self.address[1]}')
+                        logger.info('LOGIN SUCCESS')
                         self.authenticated = True
-                        yield self.send_command('5051')
+
+                        yield self.send_command('500', '005')
+                        logger.info('Sent 500 ACK for 005')
+
+                        yield self.send_command('505', '1')
+                        logger.info('Sent 5051 Login OK')
+
+    
                     else:
-                        logger.warning(f'Proxy Authentication FAILED from {self.address[0]}:{self.address[1]}')
-                        yield self.send_command('5050')
+                        logger.warning('LOGIN FAILED')
+                        yield self.send_command('505', '0')
                         self.stream.close()
                         break
 
@@ -220,17 +224,23 @@ class ProxyConnection(object):
             logger.error(f'Client error: {e}')
 
     @gen.coroutine
-    def send_command(self, data, checksum=True):
+    def send_command(self, command, data='', checksum=True):
         if isinstance(data, bytes):
             data = data.decode('ascii')
 
+        if isinstance(command, bytes):
+            data = data.decode('ascii')
+
+        full_command = command+data;
+
         if checksum:
-            cs = get_checksum(data, '')
-            to_send = (data + cs + '\r\n').encode('ascii')
+            cs = get_checksum(full_command, '')
+            to_send = (full_command + cs + '\r\n').encode('ascii')
         else:
-            to_send = (data + '\r\n').encode('ascii')
+            to_send = (full_command + '\r\n').encode('ascii')
 
         to_send_str = to_send.decode('ascii', errors='replace')
+        #logger.debug(f'PROXY < TX to client [{self.address[0]}:{self.address[1]}]: {to_send}')
 #        logger.debug(f'PROXY < TX to client [{self.address[0]}:{self.address[1]}]: {to_send_str}')
 
         try:

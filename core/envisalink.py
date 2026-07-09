@@ -214,7 +214,7 @@ class Client:
                     line = yield gen.with_timeout(
                         datetime.timedelta(seconds=15),
                         self._connection.read_until(self._terminator)
-                    )
+                    )     
 
                     parsed = self.parse_tpi_message(line)
                     if parsed:
@@ -240,8 +240,8 @@ class Client:
                     line = yield gen.with_timeout(
                         datetime.timedelta(seconds=10),
                         self._connection.read_until(self._terminator)
-                    )
-    
+                    )         
+
                     parsed = self.parse_tpi_message(line)
                     if parsed:
                         code, parameters, _, message = parsed
@@ -253,7 +253,7 @@ class Client:
                         datetime.timedelta(seconds=10),
                         self._connection.read_until(self._terminator)
                     )
-    
+
                     parsed = self.parse_tpi_message(line)
                     if parsed:
                         code, parameters, _, message = parsed
@@ -453,7 +453,7 @@ class Client:
                 except Exception as e:
                     logger.warning(f"Unexpected error while reading: {type(e).__name__}")
                     break
-
+        
             parsed = self.parse_tpi_message(rawinput)
             if not parsed:
                 rawinput = None
@@ -557,7 +557,7 @@ class Client:
             zone_id = int(parameters)
             if zone_id not in config.ZONENAMES and config.IGNORE_UNKNOWN_ZONES == True:
                 return
-           
+
             parameters = zone_id
 
         elif event_type == 'partition':
