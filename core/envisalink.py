@@ -400,7 +400,7 @@ class Client:
         return code, parameters, event, message
 
     @gen.coroutine
-    def dispatch_event(self, code, parameters, event, message, rawinput=None):
+    def dispatch_event(self, code, parameters, event, message,  rawinput=None):
         """Dispatch normal (non-login) events to appropriate handler"""
         try:
             handler_name = event.get('handler')
@@ -489,7 +489,7 @@ class Client:
     
             # Log only allowed events
             logger.debug(f'RX < {code} - {message}')
-    
+
             try:
                 yield self.dispatch_event(code, parameters, event, message, rawinput)
             except Exception as e:
@@ -514,7 +514,7 @@ class Client:
             if event_type == 'partition':
                 p = int(parameters[0]) if len(parameters) > 0 and parameters[0].isdigit() else 0
                 partition_name = config.PARTITIONNAMES.get(p, f"Partition {p}")
-    
+
                 if '{1}' in template:
                     armed_mode = "Unknown"
                     return template.format(partition_name, armed_mode)
@@ -555,21 +555,23 @@ class Client:
 
         if event_type == 'zone':
             zone_id = int(parameters)
-            if zone_id not in config.ZONENAMES:
+            if zone_id not in config.ZONENAMES and config.IGNORE_UNKNOWN_ZONES == True:
                 return
+           
             parameters = zone_id
 
         elif event_type == 'partition':
             partition_id = int(parameters)
-            if partition_id not in config.PARTITIONNAMES:
+            if partition_id not in config.PARTITIONNAMES and config.IGNORE_UNKNOWN_ZONES == True:
                 return
+
             parameters = partition_id
-  
+
         try:
             defaultStatus = evl_Defaults[event_type]
         except (IndexError, KeyError):
             defaultStatus = {}
-  
+
         events.put('alarm', event_type, parameters, code, event, message, defaultStatus)
 
     def handle_zone(self, code, parameters, event, message):

@@ -82,18 +82,50 @@ async def connect_to_broker():
             await process_mqtt_command(message)
 
 
-async def publish_state_change(client, eventType, type, parameters, code, event, message, defaultStatus, is_init=False):
-    """Publish zone/partition state to MQTT."""
-    topic = "{}/{}/{}/state".format(config.MQTT_BASE_TOPIC, type, parameters)
+async def publish_state_change(client, eventType, type, parameters, code, event, message, name, defaultStatus, is_init=False):
+    """Publish zone or partition state change to MQTT."""
+    
+    topic = f"{config.MQTT_BASE_TOPIC}/{type}/{parameters}/state"
 
+    # Extract status dictionary from the event
+    status = event.get('status', {}) if event else {}
+
+    # Base payload with common fields
     payload = {
         "type": type,
         "id": parameters,
         "code": code,
+        "name": name,
         "message": message,
-        "status": event.get("status", {}),
-        "is_init": is_init
+        "is_init": is_init,
     }
+
+    # === ZONE SPECIFIC FIELDS ===
+    if type == 'zone':
+        payload.update({
+            "open":   status.get('open'),
+            "fault":  status.get('fault'),
+            "alarm":  status.get('alarm'),
+            "tamper": status.get('tamper'),
+        })
+
+    # === PARTITION SPECIFIC FIELDS ===
+    elif type == 'partition':
+        payload.update({
+            "ready":        status.get('ready'),
+            "armed":        status.get('armed'),
+            "alarm":        status.get('alarm'),
+            "tamper":       status.get('tamper'),
+            "trouble":      status.get('trouble'),
+            "trouble_led":  status.get('trouble_led'),
+            "exit_delay":   status.get('exit_delay'),
+            "entry_delay":  status.get('entry_delay'),
+            "chime":        status.get('chime'),
+            "armed_bypass": status.get('armed_bypass'),
+        })
+
+    # Optional: include full raw status for debugging
+    payload["raw_status"] = defaultStatus
 
     try:
         await client.publish(
@@ -102,10 +134,10 @@ async def publish_state_change(client, eventType, type, parameters, code, event,
             qos=1,
             retain=config.MQTT_RETAIN
         )
-        #logger.debug("[MQTT] Published -> {} | is_init={}".format(topic, is_init))
+        logger.debug(f"[MQTT] Published {type} {parameters} -> {topic}")
 
     except Exception as e:
-        logger.error("[MQTT] Publish failed for topic {}: {}".format(topic, e))
+        logger.error(f"[MQTT] Publish failed for topic {topic}: {e}")
 
 
 async def process_mqtt_command(message):
