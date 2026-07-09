@@ -15,13 +15,12 @@ Envisalink allows only one TCP client at a time. Old connections were not proper
 
 **This update fixes:**
 
-- Aggressive cleanup of previous connections before reconnect
-- Improved reconnection logic and error handling (`StreamClosedError`, timeouts)
-- Sequential and stable login procedure
-- Automatic Envisalink reboot after max reconnection attempts
-- Better state management (`_connected`, `_reconnecting`, `_busy`)
-- Implements alarmserver<>evl keepalive
-- other minor fixes, code cleanup, error handling, proper logging, config cleanup and python 3.8 migration
+- better reconnect logic
+- if reconnecting fails - reboots Envisalink
+- Implements alarmserver<->evl keepalive
+- works with https://github.com/ufodone/envisalink_new
+- beta mqtt broker support
+- other minor fixes, code cleanup, error handling, better logging, config cleanup and python 3.8 migration
 
-Proxy now responds `999` when not connected to EVL.
+Proxy now responds custom codes: `999` when not connected to EVL and `998` when it receives malformed command from client.
 
