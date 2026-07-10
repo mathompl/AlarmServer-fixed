@@ -18,7 +18,7 @@ Envisalink allows only one TCP client at a time. Old connections were not proper
 - better reconnect logic
 - if reconnecting fails - reboots Envisalink
 - Implements alarmserver<->evl keepalive
-- works with https://github.com/ufodone/envisalink_new
+- works with HomeAssistant envisalink_new: https://github.com/ufodone/envisalink_new
 - beta mqtt broker support
 - other minor fixes, code cleanup, error handling, better logging, config cleanup and python 3.8 migration
 
