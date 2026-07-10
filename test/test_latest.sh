@@ -15,7 +15,7 @@ LOGLEVEL=DEBUG
 TZ="Europe/Warsaw"
 # ============================================================
 
-CONFIG_TEMPLATE="/volume1/docker/alarmserver/git/config/alarmserver-test.cfg"
+CONFIG_TEMPLATE="test/alarmserver-test.cfg"
 CONFIG_TEMP="/tmp/alarmserver_running.cfg"
 
 echo "=== AlarmServer - Starting with ENV configuration ==="

@@ -16,7 +16,7 @@ LOGLEVEL=DEBUG
 TZ="Europe/Warsaw"
 # ============================================================
 
-CONFIG_TEMPLATE="config/alarmserver.cfg"
+CONFIG_TEMPLATE="test/alarmserver-test.cfg"
 CONFIG_TEMP="/tmp/alarmserver_running.cfg"
 
 echo "=== TEST AlarmServer - Starting with ENV configuration ==="
